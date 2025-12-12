@@ -9,8 +9,7 @@
     "prestart:dev": "npm run clean && npm run prisma:generate",
     "start:dev": "nest start --watch",
     "clean": "rm -rf dist tsconfig.tsbuildinfo",
-    "prisma:migrate": "prisma migrate dev --name init",
-    "prisma:generate": "prisma generate"
+    "prisma:migrate": "prisma migrate dev --name init"
   },
   "dependencies": {
     "@nestjs/common": "^10.0.0",
