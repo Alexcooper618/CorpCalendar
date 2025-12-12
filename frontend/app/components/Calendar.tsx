@@ -237,7 +237,6 @@ export const Calendar: React.FC = () => {
                             <button
                               key={ev.id}
                               onMouseDown={(e) => e.stopPropagation()}
-                              onMouseUp={(e) => e.stopPropagation()}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setRangeForModal({
