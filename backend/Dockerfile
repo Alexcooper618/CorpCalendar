@@ -5,13 +5,10 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 
-# ВАЖНО: копируем сгенерированного Prisma Client
+# generate Prisma Client inside the image
 COPY prisma ./prisma
-COPY node_modules/.prisma ./node_modules/.prisma
-COPY node_modules/@prisma ./node_modules/@prisma
+RUN npx prisma generate
 
 COPY . .
 
 CMD ["npm", "run", "start:dev"]
-
-

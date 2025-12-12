@@ -14,8 +14,20 @@ export class EventsService {
   }
 
   async create(dto: CreateEventDto) {
+    if (!dto.title?.trim()) {
+      throw new BadRequestException('Укажите название события');
+    }
+
+    if (!dto.startDate || !dto.endDate) {
+      throw new BadRequestException('Дата начала и окончания обязательны');
+    }
+
     const start = new Date(dto.startDate);
     const end = new Date(dto.endDate);
+
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+      throw new BadRequestException('Неверный формат даты');
+    }
 
     if (end < start) {
       throw new BadRequestException('Дата окончания раньше даты начала');
@@ -35,12 +47,33 @@ export class EventsService {
   }
 
   async update(id: number, dto: UpdateEventDto) {
+    let start: Date | undefined;
+    let end: Date | undefined;
+
+    if (dto.startDate) {
+      start = new Date(dto.startDate);
+      if (Number.isNaN(start.getTime())) {
+        throw new BadRequestException('Неверный формат даты начала');
+      }
+    }
+
+    if (dto.endDate) {
+      end = new Date(dto.endDate);
+      if (Number.isNaN(end.getTime())) {
+        throw new BadRequestException('Неверный формат даты окончания');
+      }
+    }
+
+    if (start && end && end < start) {
+      throw new BadRequestException('Дата окончания раньше даты начала');
+    }
+
     return this.prisma.event.update({
       where: { id },
       data: {
         ...dto,
-        startDate: dto.startDate ? new Date(dto.startDate) : undefined,
-        endDate: dto.endDate ? new Date(dto.endDate) : undefined,
+        startDate: start,
+        endDate: end,
       },
     });
   }

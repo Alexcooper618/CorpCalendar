@@ -1,29 +1,9 @@
-import { IsDateString, IsOptional, IsString, MinLength } from 'class-validator';
-
 export class CreateEventDto {
-  @IsString()
-  @MinLength(3)
-  title: string;
-
-  @IsOptional()
-  @IsString()
+  title!: string;
   owner?: string;
-
-  @IsOptional()
-  @IsString()
   dept?: string;
-
-  @IsDateString()
-  startDate: string;
-
-  @IsDateString()
-  endDate: string;
-
-  @IsOptional()
-  @IsString()
+  startDate!: string;
+  endDate!: string;
   color?: string;
-
-  @IsOptional()
-  @IsString()
   comment?: string;
 }
