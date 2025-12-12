@@ -1,17 +1,11 @@
-FROM node:20-alpine
+FROM node:20-bullseye
 
 WORKDIR /app
 
 COPY package*.json ./
 RUN npm install
 
-# ВАЖНО: копируем сгенерированного Prisma Client
-COPY prisma ./prisma
-COPY node_modules/.prisma ./node_modules/.prisma
-COPY node_modules/@prisma ./node_modules/@prisma
-
 COPY . .
+RUN npm run build
 
-CMD ["npm", "run", "start:dev"]
-
-
+CMD ["npm", "run", "start:prod"]

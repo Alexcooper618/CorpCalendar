@@ -2,8 +2,8 @@ import { IsDateString, IsOptional, IsString, MinLength } from 'class-validator';
 
 export class CreateEventDto {
   @IsString()
-  @MinLength(3)
-  title: string;
+  @MinLength(1)
+  title!: string;
 
   @IsOptional()
   @IsString()
@@ -14,10 +14,10 @@ export class CreateEventDto {
   dept?: string;
 
   @IsDateString()
-  startDate: string;
+  startDate!: string;
 
   @IsDateString()
-  endDate: string;
+  endDate!: string;
 
   @IsOptional()
   @IsString()
