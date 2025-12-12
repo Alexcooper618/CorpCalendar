@@ -1,17 +1,17 @@
-FROM node:20-alpine
+FROM node:20-bullseye
 
 WORKDIR /app
 
 COPY package*.json ./
 RUN npm install
 
-# ВАЖНО: копируем сгенерированного Prisma Client
+# generate Prisma Client inside the image
 COPY prisma ./prisma
-COPY node_modules/.prisma ./node_modules/.prisma
-COPY node_modules/@prisma ./node_modules/@prisma
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates openssl \
+  && rm -rf /var/lib/apt/lists/* \
+  && npx prisma generate
 
 COPY . .
 
 CMD ["npm", "run", "start:dev"]
-
-
