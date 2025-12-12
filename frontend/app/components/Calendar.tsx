@@ -232,13 +232,11 @@ export const Calendar: React.FC = () => {
                           </span>
                         </div>
 
-                        <div className="space-y-1 max-h-32 overflow-y-auto pr-1">
-                          {dayEvents.map((ev) => (
+                        <div className="space-y-1">
+                          {dayEvents.slice(0, 3).map((ev) => (
                             <button
                               key={ev.id}
-                              type="button"
                               onMouseDown={(e) => e.stopPropagation()}
-                              onMouseUp={(e) => e.stopPropagation()}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setRangeForModal({
@@ -247,7 +245,7 @@ export const Calendar: React.FC = () => {
                                   event: ev,
                                 });
                               }}
-                              className="w-full text-left truncate rounded-full px-1.5 py-0.5 text-[10px] text-slate-800 border cursor-pointer hover:ring-2 hover:ring-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                              className="w-full text-left truncate rounded-full px-1.5 py-0.5 text-[10px] text-slate-800 border hover:ring-2 hover:ring-blue-300"
                               style={{
                                 backgroundColor: ev.color || "#e0f2fe",
                                 borderColor: ev.color || "#bae6fd",
