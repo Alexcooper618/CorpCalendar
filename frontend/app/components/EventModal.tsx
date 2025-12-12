@@ -68,7 +68,7 @@ export const EventModal = ({
     setIsSaving(true);
 
     try {
-      const response = await fetch(buildApiUrl("/api/events"), {
+      const response = await fetch(`${API_URL}/api/events`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -94,11 +94,7 @@ export const EventModal = ({
       onSaved();
     } catch (e) {
       const message = e instanceof Error ? e.message : "Не удалось сохранить событие";
-      const readableMessage =
-        message === "Failed to fetch"
-          ? "Не удалось связаться с сервером. Проверьте подключение или попробуйте позже"
-          : message;
-      setError(readableMessage);
+      setError(message);
     } finally {
       setIsSaving(false);
     }
