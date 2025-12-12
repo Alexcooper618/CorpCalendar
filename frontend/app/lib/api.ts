@@ -1,12 +1,25 @@
 export function buildApiUrl(path: string) {
   const envBase = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "");
+  if (typeof window === "undefined") {
+    return envBase ? `${envBase}${path}` : path;
+  }
+
+  const { protocol, hostname, port } = window.location;
+  const backendPort = port === "3000" ? "4000" : port;
+  const browserBase = backendPort
+    ? `${protocol}//${hostname}:${backendPort}`
+    : `${protocol}//${hostname}`;
+
   if (envBase) {
-    return `${envBase}${path}`;
+    try {
+      const envHost = new URL(envBase).hostname;
+      if (envHost === hostname) {
+        return `${envBase}${path}`;
+      }
+    } catch {
+      // fall back to browser base on invalid env value
+    }
   }
 
-  if (typeof window !== "undefined" && window.location?.origin) {
-    return `${window.location.origin}${path}`;
-  }
-
-  return path;
+  return `${browserBase}${path}`;
 }
