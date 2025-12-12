@@ -11,11 +11,11 @@ model Event {
   id          Int      @id @default(autoincrement())
   title       String
   owner       String?
-  goal        String?
-  dept        String?    // care / fin / corp / etc
-  product     String?    // код продукта
+  dept        String?    // свободное поле подразделения
   startDate   DateTime
   endDate     DateTime
+  color       String?
+  comment     String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }

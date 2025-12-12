@@ -11,19 +11,19 @@ export class CreateEventDto {
 
   @IsOptional()
   @IsString()
-  goal?: string;
-
-  @IsOptional()
-  @IsString()
   dept?: string;
-
-  @IsOptional()
-  @IsString()
-  product?: string;
 
   @IsDateString()
   startDate: string;
 
   @IsDateString()
   endDate: string;
+
+  @IsOptional()
+  @IsString()
+  color?: string;
+
+  @IsOptional()
+  @IsString()
+  comment?: string;
 }
