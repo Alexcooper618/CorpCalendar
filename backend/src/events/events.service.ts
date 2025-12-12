@@ -6,9 +6,10 @@ import {
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
 import { randomUUID } from 'crypto';
-import Database from 'better-sqlite3';
-import { existsSync, mkdirSync } from 'fs';
-import { join } from 'path';
+import Database, { Statement } from 'better-sqlite3';
+import { existsSync, mkdirSync, openSync, closeSync } from 'fs';
+import { dirname, resolve } from 'path';
+import { Logger } from '@nestjs/common';
 
 export interface EventItem {
   id: string;
@@ -24,19 +25,40 @@ export interface EventItem {
 @Injectable()
 export class EventsService {
   private db: Database;
-  private insertStmt: Database.Statement;
-  private selectAllStmt: Database.Statement;
-  private selectByIdStmt: Database.Statement;
-  private updateStmt: Database.Statement;
-  private deleteStmt: Database.Statement;
+  private insertStmt: Statement;
+  private selectAllStmt: Statement;
+  private selectByIdStmt: Statement;
+  private updateStmt: Statement;
+  private deleteStmt: Statement;
 
   constructor() {
-    const dataDir = join(process.cwd(), 'data');
-    if (!existsSync(dataDir)) {
-      mkdirSync(dataDir, { recursive: true });
+    const dbPath = resolve(process.env.SQLITE_PATH ?? '/app/data/calendar.db');
+    const dataDir = dirname(dbPath);
+
+    try {
+      if (!existsSync(dataDir)) {
+        mkdirSync(dataDir, { recursive: true });
+        Logger.log(
+          `Created data directory: ${dataDir}`,
+          EventsService.name,
+        );
+      }
+
+      if (!existsSync(dbPath)) {
+        closeSync(openSync(dbPath, 'a'));
+        Logger.log(`Created SQLite file: ${dbPath}`, EventsService.name);
+      }
+    } catch (err) {
+      Logger.error(
+        `Failed to prepare SQLite path at ${dbPath}: ${String(err)}`,
+        undefined,
+        EventsService.name,
+      );
+      throw err;
     }
 
-    const dbPath = join(dataDir, 'calendar.db');
+    Logger.log(`Using SQLite database at: ${dbPath}`, EventsService.name);
+
     this.db = new Database(dbPath);
     this.db.exec('PRAGMA journal_mode = WAL');
 
