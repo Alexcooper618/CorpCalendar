@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { buildApiUrl } from "../lib/api";
 import { Event } from "./Calendar";
 
@@ -23,19 +23,26 @@ export const EventModal = ({
   onClose,
   onSaved,
 }: {
-  range: { start: Date; end?: Date };
+  range: { start: Date; end?: Date; event?: Event };
   onClose: () => void;
   onSaved: () => void;
 }) => {
-  const [title, setTitle] = useState("");
-  const [dept, setDept] = useState("");
-  const [owner, setOwner] = useState("");
-  const [startDate, setStartDate] = useState(toInputDate(range.start));
-  const [endDate, setEndDate] = useState(range.end ? toInputDate(range.end) : "");
-  const [color, setColor] = useState(PALETTE[0]);
-  const [comment, setComment] = useState("");
+  const [title, setTitle] = useState(range.event?.title || "");
+  const [dept, setDept] = useState(range.event?.dept || "");
+  const [owner, setOwner] = useState(range.event?.owner || "");
+  const [startDate, setStartDate] = useState(
+    toInputDate(new Date(range.event?.startDate || range.start))
+  );
+  const [endDate, setEndDate] = useState(
+    toInputDate(new Date(range.event?.endDate || range.end || range.start))
+  );
+  const [color, setColor] = useState(range.event?.color || PALETTE[0]);
+  const [comment, setComment] = useState(range.event?.comment || "");
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const isEditing = Boolean(range.event);
 
   const titlePlaceholder = useMemo(() => {
     const formatter = new Intl.DateTimeFormat("ru-RU", {
@@ -49,6 +56,21 @@ export const EventModal = ({
 
     return `Опрос ${formatter.format(range.start)}`;
   }, [range.end, range.start]);
+
+  const updateFromRange = () => {
+    setTitle(range.event?.title || "");
+    setDept(range.event?.dept || "");
+    setOwner(range.event?.owner || "");
+    setStartDate(toInputDate(new Date(range.event?.startDate || range.start)));
+    setEndDate(toInputDate(new Date(range.event?.endDate || range.end || range.start)));
+    setColor(range.event?.color || PALETTE[0]);
+    setComment(range.event?.comment || "");
+    setError("");
+  };
+
+  useEffect(() => {
+    updateFromRange();
+  }, [range]);
 
   const save = async () => {
     if (!endDate) {
@@ -68,19 +90,22 @@ export const EventModal = ({
     setIsSaving(true);
 
     try {
-      const response = await fetch(buildApiUrl("/api/events"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: title || titlePlaceholder,
-          startDate: start.toISOString(),
-          endDate: end.toISOString(),
-          dept: dept || undefined,
-          owner: owner || undefined,
-          color,
-          comment: comment || undefined,
-        } satisfies Partial<Event>),
-      });
+      const response = await fetch(
+        buildApiUrl(`/api/events${isEditing ? `/${range.event?.id}` : ""}`),
+        {
+          method: isEditing ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: title || titlePlaceholder,
+            startDate: start.toISOString(),
+            endDate: end.toISOString(),
+            dept: dept || undefined,
+            owner: owner || undefined,
+            color,
+            comment: comment || undefined,
+          } satisfies Partial<Event>),
+        }
+      );
 
       if (!response.ok) {
         const message = await response
@@ -100,12 +125,46 @@ export const EventModal = ({
     }
   };
 
+  const remove = async () => {
+    if (!range.event) return;
+
+    const confirmed = window.confirm("Удалить этот опрос?");
+    if (!confirmed) return;
+
+    setError("");
+    setIsDeleting(true);
+
+    try {
+      const response = await fetch(buildApiUrl(`/api/events/${range.event.id}`), {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        const message = await response
+          .json()
+          .then((data) => data.message)
+          .catch(() => undefined);
+
+        throw new Error(message || "Не удалось удалить событие");
+      }
+
+      onSaved();
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Не удалось удалить событие";
+      setError(message);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const heading = isEditing ? "Редактирование опроса" : "Новый опрос";
+
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 space-y-4">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-xs text-slate-500">Новый опрос</p>
+            <p className="text-xs text-slate-500">{heading}</p>
             <h3 className="font-semibold text-lg">{title || titlePlaceholder}</h3>
           </div>
           <button
@@ -206,18 +265,27 @@ export const EventModal = ({
 
         {error && <div className="text-sm text-red-600">{error}</div>}
 
-        <div className="flex justify-end gap-2 pt-2">
+        <div className="flex justify-between gap-2 pt-2 flex-wrap">
+          {isEditing && (
+            <button
+              onClick={remove}
+              className="px-3 py-2 text-sm rounded-md border border-red-300 text-red-700 hover:bg-red-50 disabled:opacity-60"
+              disabled={isSaving || isDeleting}
+            >
+              {isDeleting ? "Удаление..." : "Удалить"}
+            </button>
+          )}
           <button
             onClick={onClose}
             className="px-3 py-2 text-sm rounded-md border"
-            disabled={isSaving}
+            disabled={isSaving || isDeleting}
           >
             Отмена
           </button>
           <button
             onClick={save}
             className="px-4 py-2 text-sm rounded-md bg-blue-600 text-white disabled:opacity-60"
-            disabled={isSaving}
+            disabled={isSaving || isDeleting}
           >
             {isSaving ? "Сохранение..." : "Сохранить"}
           </button>
