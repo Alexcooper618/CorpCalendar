@@ -1,9 +1,8 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
+import { buildApiUrl } from "../lib/api";
 import { Event } from "./Calendar";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
 const PALETTE = [
   "#0284c7",
@@ -68,22 +67,41 @@ export const EventModal = ({
     setError("");
     setIsSaving(true);
 
-    await fetch(`${API_URL}/api/events`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title: title || titlePlaceholder,
-        startDate: start.toISOString(),
-        endDate: end.toISOString(),
-        dept: dept || undefined,
-        owner: owner || undefined,
-        color,
-        comment: comment || undefined,
-      } satisfies Partial<Event>),
-    });
+    try {
+      const response = await fetch(buildApiUrl("/api/events"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: title || titlePlaceholder,
+          startDate: start.toISOString(),
+          endDate: end.toISOString(),
+          dept: dept || undefined,
+          owner: owner || undefined,
+          color,
+          comment: comment || undefined,
+        } satisfies Partial<Event>),
+      });
 
-    setIsSaving(false);
-    onSaved();
+      if (!response.ok) {
+        const message = await response
+          .json()
+          .then((data) => data.message)
+          .catch(() => undefined);
+
+        throw new Error(message || "Не удалось сохранить событие");
+      }
+
+      onSaved();
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Не удалось сохранить событие";
+      const readableMessage =
+        message === "Failed to fetch"
+          ? "Не удалось связаться с сервером. Проверьте подключение или попробуйте позже"
+          : message;
+      setError(readableMessage);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
