@@ -111,7 +111,12 @@ export const Calendar: React.FC = () => {
     return date >= min && date <= max;
   };
 
-  const handleMouseDown = (day: Date) => {
+  const isEventTarget = (event: React.MouseEvent) =>
+    (event.target as HTMLElement | null)?.closest("[data-event-id]");
+
+  const handleMouseDown = (event: React.MouseEvent, day: Date) => {
+    if (isEventTarget(event)) return;
+
     setSelectionStart(day);
     setSelectionEnd(day);
     setHasDragged(false);
@@ -126,7 +131,9 @@ export const Calendar: React.FC = () => {
     }
   };
 
-  const handleMouseUp = (day: Date) => {
+  const handleMouseUp = (event: React.MouseEvent, day: Date) => {
+    if (isEventTarget(event)) return;
+
     if (!selectionStart) return;
 
     const start = normalizeDate(selectionStart);
@@ -211,9 +218,9 @@ export const Calendar: React.FC = () => {
                     return (
                       <div
                         key={key}
-                        onMouseDown={() => handleMouseDown(day)}
+                        onMouseDown={(event) => handleMouseDown(event, day)}
                         onMouseEnter={() => handleMouseEnter(day)}
-                        onMouseUp={() => handleMouseUp(day)}
+                        onMouseUp={(event) => handleMouseUp(event, day)}
                         className={`bg-white min-h-[80px] p-1 cursor-pointer transition relative
                           ${isWeekend ? "bg-slate-50" : ""}
                           ${isHoliday ? "bg-amber-50" : ""}
@@ -255,12 +262,6 @@ export const Calendar: React.FC = () => {
                               {ev.title}
                             </button>
                           ))}
-
-                          {dayEvents.length > 3 && (
-                            <div className="text-[10px] text-slate-400">
-                              + ещё {dayEvents.length - 3}
-                            </div>
-                          )}
                         </div>
                       </div>
                     );
