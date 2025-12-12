@@ -68,22 +68,37 @@ export const EventModal = ({
     setError("");
     setIsSaving(true);
 
-    await fetch(`${API_URL}/api/events`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title: title || titlePlaceholder,
-        startDate: start.toISOString(),
-        endDate: end.toISOString(),
-        dept: dept || undefined,
-        owner: owner || undefined,
-        color,
-        comment: comment || undefined,
-      } satisfies Partial<Event>),
-    });
+    try {
+      const response = await fetch(`${API_URL}/api/events`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: title || titlePlaceholder,
+          startDate: start.toISOString(),
+          endDate: end.toISOString(),
+          dept: dept || undefined,
+          owner: owner || undefined,
+          color,
+          comment: comment || undefined,
+        } satisfies Partial<Event>),
+      });
 
-    setIsSaving(false);
-    onSaved();
+      if (!response.ok) {
+        const message = await response
+          .json()
+          .then((data) => data.message)
+          .catch(() => undefined);
+
+        throw new Error(message || "Не удалось сохранить событие");
+      }
+
+      onSaved();
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Не удалось сохранить событие";
+      setError(message);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
