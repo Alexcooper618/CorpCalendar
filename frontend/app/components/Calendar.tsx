@@ -255,12 +255,6 @@ export const Calendar: React.FC = () => {
                               {ev.title}
                             </button>
                           ))}
-
-                          {dayEvents.length > 3 && (
-                            <div className="text-[10px] text-slate-400">
-                              + ещё {dayEvents.length - 3}
-                            </div>
-                          )}
                         </div>
                       </div>
                     );
