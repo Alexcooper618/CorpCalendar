@@ -1,0 +1,41 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16
+    container_name: csi_calendar_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: csi_user
+      POSTGRES_PASSWORD: csi_password
+      POSTGRES_DB: csi_calendar
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+  backend:
+    build: ./backend
+    container_name: csi_calendar_backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://csi_user:csi_password@db:5432/csi_calendar
+      PORT: 4000
+    ports:
+      - "4000:4000"
+    depends_on:
+      - db
+
+  frontend:
+    build: ./frontend
+    container_name: csi_calendar_frontend
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:4000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  db_data:
