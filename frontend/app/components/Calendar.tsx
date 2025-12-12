@@ -5,7 +5,7 @@ import { buildApiUrl } from "../lib/api";
 import { EventModal } from "./EventModal";
 
 export type Event = {
-  id: number;
+  id: string;
   title: string;
   startDate: string;
   endDate: string;
@@ -57,13 +57,12 @@ function normalizeDate(date: Date) {
 
 export const Calendar: React.FC = () => {
   const [events, setEvents] = useState<Event[]>([]);
-  const [selectionStart, setSelectionStart] = useState<Date | null>(null);
-  const [selectionEnd, setSelectionEnd] = useState<Date | null>(null);
-  const [hasDragged, setHasDragged] = useState(false);
   const [rangeForModal, setRangeForModal] = useState<{
     start: Date;
     end?: Date;
+    event?: Event;
   } | null>(null);
+  const [dayDetailsDate, setDayDetailsDate] = useState<Date | null>(null);
 
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
 
@@ -100,41 +99,8 @@ export const Calendar: React.FC = () => {
     });
   };
 
-  const isInSelection = (day: Date) => {
-    if (!selectionStart) return false;
-    const start = normalizeDate(selectionStart);
-    const end = normalizeDate(selectionEnd || selectionStart);
-    const date = normalizeDate(day);
-
-    const [min, max] = start <= end ? [start, end] : [end, start];
-    return date >= min && date <= max;
-  };
-
-  const handleMouseDown = (day: Date) => {
-    setSelectionStart(day);
-    setSelectionEnd(day);
-    setHasDragged(false);
-  };
-
-  const handleMouseEnter = (day: Date) => {
-    if (selectionStart) {
-      setSelectionEnd(day);
-      if (normalizeDate(day).getTime() !== normalizeDate(selectionStart).getTime()) {
-        setHasDragged(true);
-      }
-    }
-  };
-
-  const handleMouseUp = (day: Date) => {
-    if (!selectionStart) return;
-
-    const start = normalizeDate(selectionStart);
-    const end = normalizeDate(day);
-    setRangeForModal({ start, end: hasDragged ? end : undefined });
-
-    setSelectionStart(null);
-    setSelectionEnd(null);
-    setHasDragged(false);
+  const openDayDetails = (day: Date) => {
+    setDayDetailsDate(day);
   };
 
   const monthTitle = (month: number) =>
@@ -205,18 +171,14 @@ export const Calendar: React.FC = () => {
                     const isToday = key === todayKey;
                     const isWeekend = day.getDay() === 0 || day.getDay() === 6;
                     const isHoliday = holidays.has(key);
-                    const selected = isInSelection(day);
 
                     return (
                       <div
                         key={key}
-                        onMouseDown={() => handleMouseDown(day)}
-                        onMouseEnter={() => handleMouseEnter(day)}
-                        onMouseUp={() => handleMouseUp(day)}
+                        onClick={() => openDayDetails(day)}
                         className={`bg-white min-h-[80px] p-1 cursor-pointer transition relative
                           ${isWeekend ? "bg-slate-50" : ""}
                           ${isHoliday ? "bg-amber-50" : ""}
-                          ${selected ? "ring-2 ring-blue-400" : ""}
                         `}
                       >
                         <div className="flex justify-between items-center text-[11px] mb-1">
@@ -231,11 +193,11 @@ export const Calendar: React.FC = () => {
                           </span>
                         </div>
 
-                        <div className="space-y-1">
-                          {dayEvents.slice(0, 3).map((ev) => (
+                        <div className="space-y-1 max-h-32 overflow-y-auto pr-1">
+                          {dayEvents.map((ev) => (
                             <div
                               key={ev.id}
-                              className="truncate rounded-full px-1.5 py-0.5 text-[10px] text-slate-800 border"
+                              className="w-full truncate rounded-full px-1.5 py-0.5 text-[10px] text-slate-800 border"
                               style={{
                                 backgroundColor: ev.color || "#e0f2fe",
                                 borderColor: ev.color || "#bae6fd",
@@ -245,12 +207,6 @@ export const Calendar: React.FC = () => {
                               {ev.title}
                             </div>
                           ))}
-
-                          {dayEvents.length > 3 && (
-                            <div className="text-[10px] text-slate-400">
-                              + ещё {dayEvents.length - 3}
-                            </div>
-                          )}
                         </div>
                       </div>
                     );
@@ -262,6 +218,28 @@ export const Calendar: React.FC = () => {
         </div>
       </div>
 
+      {dayDetailsDate && (
+        <DayDetailsModal
+          date={dayDetailsDate}
+          events={getEventsForDay(dayDetailsDate)}
+          onClose={() => setDayDetailsDate(null)}
+          onAdd={() =>
+            setRangeForModal({
+              start: normalizeDate(dayDetailsDate),
+              end: normalizeDate(dayDetailsDate),
+            })
+          }
+          onEdit={(event) =>
+            setRangeForModal({
+              start: new Date(event.startDate),
+              end: new Date(event.endDate),
+              event,
+            })
+          }
+          onDeleted={fetchEvents}
+        />
+      )}
+
       {rangeForModal && (
         <EventModal
           range={rangeForModal}
@@ -272,6 +250,175 @@ export const Calendar: React.FC = () => {
           }}
         />
       )}
+    </div>
+  );
+};
+
+const DayDetailsModal = ({
+  date,
+  events,
+  onClose,
+  onAdd,
+  onEdit,
+  onDeleted,
+}: {
+  date: Date;
+  events: Event[];
+  onClose: () => void;
+  onAdd: () => void;
+  onEdit: (event: Event) => void;
+  onDeleted: () => void;
+}) => {
+  const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
+  const [error, setError] = useState("");
+
+  const formattedDate = new Intl.DateTimeFormat("ru-RU", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  }).format(date);
+
+  const handleDelete = async (event: Event) => {
+    const confirmed = window.confirm("Удалить этот опрос?");
+    if (!confirmed) return;
+
+    setError("");
+    setIsDeletingId(event.id);
+
+    try {
+      const response = await fetch(buildApiUrl(`/api/events/${event.id}`), {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        const message = await response
+          .json()
+          .then((data) => data.message)
+          .catch(() => undefined);
+
+        throw new Error(message || "Не удалось удалить событие");
+      }
+
+      onDeleted();
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Не удалось удалить событие";
+      setError(message);
+    } finally {
+      setIsDeletingId(null);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-xl p-6 space-y-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs text-slate-500">События дня</p>
+            <h3 className="font-semibold text-lg">{formattedDate}</h3>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-slate-500 hover:text-slate-700 text-sm"
+            aria-label="Закрыть"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="flex justify-between items-center gap-3">
+          <div className="text-sm text-slate-700">
+            {events.length ? `${events.length} событие(й)` : "Нет событий"}
+          </div>
+          <button
+            onClick={onAdd}
+            className="px-4 py-2 text-sm rounded-md bg-blue-600 text-white"
+          >
+            Добавить событие
+          </button>
+        </div>
+
+        {error && <div className="text-sm text-red-600">{error}</div>}
+
+        <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
+          {events.length === 0 && (
+            <div className="text-sm text-slate-500">В этот день пока нет событий.</div>
+          )}
+
+          {events.map((event) => (
+            <div
+              key={event.id}
+              className="border rounded-lg p-3 flex flex-col gap-2 bg-slate-50"
+              style={{ borderColor: event.color || "#e2e8f0" }}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span
+                    className="w-3 h-3 rounded-full border"
+                    style={{
+                      backgroundColor: event.color || "#e0f2fe",
+                      borderColor: event.color || "#bae6fd",
+                    }}
+                  />
+                  <div className="font-semibold text-sm truncate" title={event.title}>
+                    {event.title}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    className="text-xs text-blue-700 hover:underline"
+                    onClick={() => onEdit(event)}
+                  >
+                    Редактировать
+                  </button>
+                  <button
+                    className="text-xs text-red-700 hover:underline disabled:opacity-60"
+                    onClick={() => handleDelete(event)}
+                    disabled={isDeletingId === event.id}
+                  >
+                    {isDeletingId === event.id ? "Удаление..." : "Удалить"}
+                  </button>
+                </div>
+              </div>
+
+              <div className="text-xs text-slate-600 space-y-1">
+                {(event.dept || event.owner) && (
+                  <div className="flex flex-wrap gap-2">
+                    {event.dept && (
+                      <span className="px-2 py-0.5 rounded-full bg-white border text-slate-700">
+                        {event.dept}
+                      </span>
+                    )}
+                    {event.owner && (
+                      <span className="px-2 py-0.5 rounded-full bg-white border text-slate-700">
+                        {event.owner}
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">Период:</span>
+                  <span>
+                    {new Date(event.startDate).toLocaleDateString("ru-RU", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "numeric",
+                    })}
+                    {" — "}
+                    {new Date(event.endDate).toLocaleDateString("ru-RU", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "numeric",
+                    })}
+                  </span>
+                </div>
+
+                {event.comment && <div>Комментарий: {event.comment}</div>}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 };
