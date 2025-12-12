@@ -5,7 +5,7 @@ import { buildApiUrl } from "../lib/api";
 import { EventModal } from "./EventModal";
 
 export type Event = {
-  id: number;
+  id: string;
   title: string;
   startDate: string;
   endDate: string;
@@ -63,6 +63,7 @@ export const Calendar: React.FC = () => {
   const [rangeForModal, setRangeForModal] = useState<{
     start: Date;
     end?: Date;
+    event?: Event;
   } | null>(null);
 
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
@@ -231,11 +232,22 @@ export const Calendar: React.FC = () => {
                           </span>
                         </div>
 
-                        <div className="space-y-1">
-                          {dayEvents.slice(0, 3).map((ev) => (
-                            <div
+                        <div className="space-y-1 max-h-32 overflow-y-auto pr-1">
+                          {dayEvents.map((ev) => (
+                            <button
                               key={ev.id}
-                              className="truncate rounded-full px-1.5 py-0.5 text-[10px] text-slate-800 border"
+                              type="button"
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onMouseUp={(e) => e.stopPropagation()}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setRangeForModal({
+                                  start: new Date(ev.startDate),
+                                  end: new Date(ev.endDate),
+                                  event: ev,
+                                });
+                              }}
+                              className="w-full text-left truncate rounded-full px-1.5 py-0.5 text-[10px] text-slate-800 border cursor-pointer hover:ring-2 hover:ring-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
                               style={{
                                 backgroundColor: ev.color || "#e0f2fe",
                                 borderColor: ev.color || "#bae6fd",
@@ -243,14 +255,8 @@ export const Calendar: React.FC = () => {
                               title={`${ev.title}${ev.dept ? ` • ${ev.dept}` : ""}`}
                             >
                               {ev.title}
-                            </div>
+                            </button>
                           ))}
-
-                          {dayEvents.length > 3 && (
-                            <div className="text-[10px] text-slate-400">
-                              + ещё {dayEvents.length - 3}
-                            </div>
-                          )}
                         </div>
                       </div>
                     );
