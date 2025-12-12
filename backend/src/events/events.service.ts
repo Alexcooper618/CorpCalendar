@@ -25,11 +25,11 @@ export class EventsService {
       data: {
         title: dto.title,
         owner: dto.owner,
-        goal: dto.goal,
         dept: dto.dept,
-        product: dto.product,
         startDate: start,
         endDate: end,
+        color: dto.color,
+        comment: dto.comment,
       },
     });
   }

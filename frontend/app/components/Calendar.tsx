@@ -3,25 +3,37 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { EventModal } from "./EventModal";
 
-type EventType = "fin" | "care" | "corp";
-
-type Event = {
+export type Event = {
   id: number;
   title: string;
   startDate: string;
   endDate: string;
-  dept?: EventType;
+  dept?: string;
+  owner?: string;
+  color?: string;
+  comment?: string;
 };
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
-const EVENT_COLORS: Record<EventType, string> = {
-  fin: "bg-blue-100 text-blue-800",
-  care: "bg-green-100 text-green-800",
-  corp: "bg-purple-100 text-purple-800",
-};
-
 const WEEK_DAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
+
+const HOLIDAY_MONTH_DAYS = [
+  "01-01",
+  "01-02",
+  "01-03",
+  "01-04",
+  "01-05",
+  "01-06",
+  "01-07",
+  "01-08",
+  "02-23",
+  "03-08",
+  "05-01",
+  "05-09",
+  "06-12",
+  "11-04",
+];
 
 function getMonthDays(year: number, month: number) {
   const date = new Date(year, month, 1);
@@ -34,15 +46,30 @@ function getMonthDays(year: number, month: number) {
   return days;
 }
 
+function buildHolidaySet(year: number) {
+  return new Set(HOLIDAY_MONTH_DAYS.map((md) => `${year}-${md}`));
+}
+
+function normalizeDate(date: Date) {
+  const copy = new Date(date);
+  copy.setHours(0, 0, 0, 0);
+  return copy;
+}
+
 export const Calendar: React.FC = () => {
   const [events, setEvents] = useState<Event[]>([]);
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [mode, setMode] = useState<"period" | "start">("period");
+  const [selectionStart, setSelectionStart] = useState<Date | null>(null);
+  const [selectionEnd, setSelectionEnd] = useState<Date | null>(null);
+  const [hasDragged, setHasDragged] = useState(false);
+  const [rangeForModal, setRangeForModal] = useState<{
+    start: Date;
+    end?: Date;
+  } | null>(null);
 
-  const [currentYear, setCurrentYear] = useState(2026);
-  const [currentMonth, setCurrentMonth] = useState(0);
+  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
 
   const todayKey = new Date().toISOString().slice(0, 10);
+  const holidays = useMemo(() => buildHolidaySet(currentYear), [currentYear]);
 
   const fetchEvents = async () => {
     const res = await fetch(`${API_URL}/api/events`);
@@ -54,28 +81,7 @@ export const Calendar: React.FC = () => {
     fetchEvents();
   }, []);
 
-  const days = useMemo(
-    () => getMonthDays(currentYear, currentMonth),
-    [currentYear, currentMonth]
-  );
-
-  const offset =
-    (days[0]?.getDay() === 0 ? 7 : days[0]?.getDay()) - 1;
-
-  const monthTitle = new Intl.DateTimeFormat("ru-RU", {
-    month: "long",
-    year: "numeric",
-  }).format(new Date(currentYear, currentMonth, 1));
-
-  const nextMonth = () => {
-    setCurrentMonth((m) => (m + 1) % 12);
-    if (currentMonth === 11) setCurrentYear((y) => y + 1);
-  };
-
-  const prevMonth = () => {
-    setCurrentMonth((m) => (m + 11) % 12);
-    if (currentMonth === 0) setCurrentYear((y) => y - 1);
-  };
+  const months = useMemo(() => Array.from({ length: 12 }, (_, m) => m), []);
 
   const getEventsForDay = (day: Date) => {
     const key = day.toISOString().slice(0, 10);
@@ -83,118 +89,165 @@ export const Calendar: React.FC = () => {
     return events.filter((e) => {
       const start = e.startDate.slice(0, 10);
       const end = e.endDate.slice(0, 10);
-      return mode === "period"
-        ? key >= start && key <= end
-        : key === start;
+      return key >= start && key <= end;
     });
   };
 
-  return (
-    <div className="bg-white rounded-2xl shadow border border-slate-200 p-4 overflow-x-auto">
-      <div className="min-w-[1000px]">
+  const isInSelection = (day: Date) => {
+    if (!selectionStart) return false;
+    const start = normalizeDate(selectionStart);
+    const end = normalizeDate(selectionEnd || selectionStart);
+    const date = normalizeDate(day);
 
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4">
+    const [min, max] = start <= end ? [start, end] : [end, start];
+    return date >= min && date <= max;
+  };
+
+  const handleMouseDown = (day: Date) => {
+    setSelectionStart(day);
+    setSelectionEnd(day);
+    setHasDragged(false);
+  };
+
+  const handleMouseEnter = (day: Date) => {
+    if (selectionStart) {
+      setSelectionEnd(day);
+      if (normalizeDate(day).getTime() !== normalizeDate(selectionStart).getTime()) {
+        setHasDragged(true);
+      }
+    }
+  };
+
+  const handleMouseUp = (day: Date) => {
+    if (!selectionStart) return;
+
+    const start = normalizeDate(selectionStart);
+    const end = normalizeDate(day);
+    setRangeForModal({ start, end: hasDragged ? end : undefined });
+
+    setSelectionStart(null);
+    setSelectionEnd(null);
+    setHasDragged(false);
+  };
+
+  const monthTitle = (month: number) =>
+    new Intl.DateTimeFormat("ru-RU", { month: "long" }).format(
+      new Date(currentYear, month, 1)
+    );
+
+  return (
+    <div className="bg-white rounded-2xl shadow border border-slate-200 p-4">
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <p className="text-xs text-slate-500 uppercase tracking-wide">Годовой обзор</p>
+            <h2 className="text-2xl font-semibold">{currentYear}</h2>
+          </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={prevMonth}
-              className="px-2 py-1 rounded hover:bg-slate-100"
+              onClick={() => setCurrentYear((y) => y - 1)}
+              className="px-3 py-1.5 rounded-lg border text-sm hover:bg-slate-50"
             >
-              ←
+              ← Предыдущий
             </button>
             <button
-              onClick={nextMonth}
-              className="px-2 py-1 rounded hover:bg-slate-100"
+              onClick={() => setCurrentYear((y) => y + 1)}
+              className="px-3 py-1.5 rounded-lg border text-sm hover:bg-slate-50"
             >
-              →
-            </button>
-            <h2 className="ml-2 text-lg font-semibold capitalize">
-              {monthTitle}
-            </h2>
-          </div>
-
-          <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
-            <button
-              className={`px-3 py-1 text-sm rounded-md ${
-                mode === "period"
-                  ? "bg-white shadow"
-                  : "text-slate-500"
-              }`}
-              onClick={() => setMode("period")}
-            >
-              Период
-            </button>
-            <button
-              className={`px-3 py-1 text-sm rounded-md ${
-                mode === "start"
-                  ? "bg-white shadow"
-                  : "text-slate-500"
-              }`}
-              onClick={() => setMode("start")}
-            >
-              Дата рассылки
+              Следующий →
             </button>
           </div>
         </div>
 
-        {/* Weekdays */}
-        <div className="grid grid-cols-7 text-xs text-slate-500 mb-1">
-          {WEEK_DAYS.map((d) => (
-            <div key={d} className="text-center py-1">
-              {d}
-            </div>
-          ))}
-        </div>
-
-        {/* Grid */}
-        <div className="grid grid-cols-7 gap-px bg-slate-200 rounded-xl overflow-hidden">
-          {Array.from({ length: offset }).map((_, i) => (
-            <div key={i} className="bg-slate-50 min-h-[110px]" />
-          ))}
-
-          {days.map((day) => {
-            const key = day.toISOString().slice(0, 10);
-            const dayEvents = getEventsForDay(day);
-            const isToday = key === todayKey;
-            const isWeekend = day.getDay() === 0 || day.getDay() === 6;
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {months.map((month) => {
+            const days = getMonthDays(currentYear, month);
+            const offset = (days[0]?.getDay() === 0 ? 7 : days[0]?.getDay()) - 1;
 
             return (
               <div
-                key={key}
-                onClick={() => setSelectedDate(day)}
-                className={`bg-white min-h-[110px] p-1 cursor-pointer hover:bg-blue-50 transition
-                  ${isWeekend ? "bg-slate-50" : ""}
-                `}
+                key={month}
+                className="border border-slate-200 rounded-xl p-3 shadow-sm"
               >
-                <div className="flex justify-between items-center text-xs mb-1">
-                  <span
-                    className={`px-1 rounded ${
-                      isToday
-                        ? "bg-blue-600 text-white"
-                        : "text-slate-700"
-                    }`}
-                  >
-                    {day.getDate()}
-                  </span>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-base font-semibold capitalize">
+                    {monthTitle(month)}
+                  </h3>
+                  <div className="flex items-center gap-1 text-[10px] text-slate-500">
+                    <span className="px-1 rounded bg-amber-50 border border-amber-200" />
+                    <span>Праздники</span>
+                  </div>
                 </div>
 
-                <div className="space-y-1">
-                  {dayEvents.slice(0, 3).map((ev) => (
-                    <div
-                      key={ev.id}
-                      className={`truncate rounded-full px-2 py-0.5 text-[10px] ${
-                        EVENT_COLORS[ev.dept || "fin"]
-                      }`}
-                    >
-                      {ev.title}
+                <div className="grid grid-cols-7 text-[11px] text-slate-500 mb-1">
+                  {WEEK_DAYS.map((d) => (
+                    <div key={d} className="text-center py-1">
+                      {d}
                     </div>
                   ))}
+                </div>
 
-                  {dayEvents.length > 3 && (
-                    <div className="text-[10px] text-slate-400">
-                      + ещё {dayEvents.length - 3}
-                    </div>
-                  )}
+                <div className="grid grid-cols-7 gap-px bg-slate-200 rounded-lg overflow-hidden select-none">
+                  {Array.from({ length: offset }).map((_, i) => (
+                    <div key={`empty-${i}`} className="bg-slate-50 min-h-[80px]" />
+                  ))}
+
+                  {days.map((day) => {
+                    const key = day.toISOString().slice(0, 10);
+                    const dayEvents = getEventsForDay(day);
+                    const isToday = key === todayKey;
+                    const isWeekend = day.getDay() === 0 || day.getDay() === 6;
+                    const isHoliday = holidays.has(key);
+                    const selected = isInSelection(day);
+
+                    return (
+                      <div
+                        key={key}
+                        onMouseDown={() => handleMouseDown(day)}
+                        onMouseEnter={() => handleMouseEnter(day)}
+                        onMouseUp={() => handleMouseUp(day)}
+                        className={`bg-white min-h-[80px] p-1 cursor-pointer transition relative
+                          ${isWeekend ? "bg-slate-50" : ""}
+                          ${isHoliday ? "bg-amber-50" : ""}
+                          ${selected ? "ring-2 ring-blue-400" : ""}
+                        `}
+                      >
+                        <div className="flex justify-between items-center text-[11px] mb-1">
+                          <span
+                            className={`px-1 rounded ${
+                              isToday
+                                ? "bg-blue-600 text-white"
+                                : "text-slate-700"
+                            }`}
+                          >
+                            {day.getDate()}
+                          </span>
+                        </div>
+
+                        <div className="space-y-1">
+                          {dayEvents.slice(0, 3).map((ev) => (
+                            <div
+                              key={ev.id}
+                              className="truncate rounded-full px-1.5 py-0.5 text-[10px] text-slate-800 border"
+                              style={{
+                                backgroundColor: ev.color || "#e0f2fe",
+                                borderColor: ev.color || "#bae6fd",
+                              }}
+                              title={`${ev.title}${ev.dept ? ` • ${ev.dept}` : ""}`}
+                            >
+                              {ev.title}
+                            </div>
+                          ))}
+
+                          {dayEvents.length > 3 && (
+                            <div className="text-[10px] text-slate-400">
+                              + ещё {dayEvents.length - 3}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             );
@@ -202,11 +255,14 @@ export const Calendar: React.FC = () => {
         </div>
       </div>
 
-      {selectedDate && (
+      {rangeForModal && (
         <EventModal
-          date={selectedDate}
-          onClose={() => setSelectedDate(null)}
-          onSaved={fetchEvents}
+          range={rangeForModal}
+          onClose={() => setRangeForModal(null)}
+          onSaved={() => {
+            fetchEvents();
+            setRangeForModal(null);
+          }}
         />
       )}
     </div>
