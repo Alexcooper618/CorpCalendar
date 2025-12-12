@@ -3,11 +3,14 @@
   "version": "1.0.0",
   "main": "dist/main.js",
   "scripts": {
-    "prebuild": "prisma generate",
-    "build": "nest build",
+    "build": "npm run clean && npm run prisma:generate && nest build",
+    "prestart": "npm run prisma:generate",
     "start": "nest start",
+    "prestart:dev": "npm run clean && npm run prisma:generate",
     "start:dev": "nest start --watch",
-    "prisma:migrate": "prisma migrate dev --name init"
+    "clean": "rm -rf dist tsconfig.tsbuildinfo",
+    "prisma:migrate": "prisma migrate dev --name init",
+    "prisma:generate": "prisma generate"
   },
   "dependencies": {
     "@nestjs/common": "^10.0.0",
