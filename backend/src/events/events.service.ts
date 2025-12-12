@@ -7,9 +7,8 @@ import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
 import { randomUUID } from 'crypto';
 import Database, { Statement } from 'better-sqlite3';
-import { existsSync, mkdirSync, openSync, closeSync } from 'fs';
-import { dirname, resolve } from 'path';
-import { Logger } from '@nestjs/common';
+import { existsSync, mkdirSync } from 'fs';
+import { resolve } from 'path';
 
 export interface EventItem {
   id: string;
@@ -32,18 +31,13 @@ export class EventsService {
   private deleteStmt: Statement;
 
   constructor() {
-    const dbPath = resolve(process.env.SQLITE_PATH ?? '/app/data/calendar.db');
-    const dataDir = dirname(dbPath);
-
+    const dataDir = resolve('/app/data');
     if (!existsSync(dataDir)) {
       mkdirSync(dataDir, { recursive: true });
     }
 
-    if (!existsSync(dbPath)) {
-      closeSync(openSync(dbPath, 'a'));
-    }
-
-    Logger.log(`Using SQLite database at: ${dbPath}`, EventsService.name);
+    const dbPath = resolve(dataDir, 'calendar.db');
+    console.info(`[EventsService] Using SQLite database at: ${dbPath}`);
 
     this.db = new Database(dbPath);
     this.db.exec('PRAGMA journal_mode = WAL');
