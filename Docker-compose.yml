@@ -4,6 +4,7 @@ services:
     container_name: csi_calendar_backend
     restart: unless-stopped
     environment:
+      SQLITE_PATH: /app/data/calendar.db
       PORT: 4000
     ports:
       - "4000:4000"

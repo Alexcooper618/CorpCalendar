@@ -2,13 +2,14 @@ import {
   Injectable,
   BadRequestException,
   NotFoundException,
+  OnModuleInit,
 } from '@nestjs/common';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
 import { randomUUID } from 'crypto';
-import Database from 'better-sqlite3';
-import { existsSync, mkdirSync } from 'fs';
-import { join } from 'path';
+import Database, { Statement } from 'better-sqlite3';
+import { Logger } from '@nestjs/common';
+import { DatabaseService } from '../database.service';
 
 export interface EventItem {
   id: string;
@@ -22,23 +23,18 @@ export interface EventItem {
 }
 
 @Injectable()
-export class EventsService {
-  private db: Database;
-  private insertStmt: Database.Statement;
-  private selectAllStmt: Database.Statement;
-  private selectByIdStmt: Database.Statement;
-  private updateStmt: Database.Statement;
-  private deleteStmt: Database.Statement;
+export class EventsService implements OnModuleInit {
+  private db!: Database;
+  private insertStmt!: Statement;
+  private selectAllStmt!: Statement;
+  private selectByIdStmt!: Statement;
+  private updateStmt!: Statement;
+  private deleteStmt!: Statement;
 
-  constructor() {
-    const dataDir = join(process.cwd(), 'data');
-    if (!existsSync(dataDir)) {
-      mkdirSync(dataDir, { recursive: true });
-    }
+  constructor(private readonly databaseService: DatabaseService) {}
 
-    const dbPath = join(dataDir, 'calendar.db');
-    this.db = new Database(dbPath);
-    this.db.exec('PRAGMA journal_mode = WAL');
+  onModuleInit() {
+    this.db = this.databaseService.getConnection();
 
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS events (
