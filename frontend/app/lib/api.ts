@@ -5,7 +5,13 @@ export function buildApiUrl(path: string) {
   }
 
   if (typeof window !== "undefined" && window.location?.origin) {
-    return `${window.location.origin}${path}`;
+    const { protocol, hostname, port } = window.location;
+    const backendPort = port === "3000" ? "4000" : port;
+    const base = backendPort
+      ? `${protocol}//${hostname}:${backendPort}`
+      : `${protocol}//${hostname}`;
+
+    return `${base}${path}`;
   }
 
   return path;
