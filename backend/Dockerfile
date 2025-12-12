@@ -5,11 +5,10 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 
+# generate Prisma Client inside the image
 COPY prisma ./prisma
-RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates openssl \
-  && rm -rf /var/lib/apt/lists/*
+RUN npx prisma generate
 
 COPY . .
 
-CMD ["sh", "-c", "npx prisma generate && npm run start:dev"]
+CMD ["npm", "run", "start:dev"]
