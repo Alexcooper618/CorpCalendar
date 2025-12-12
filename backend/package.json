@@ -7,6 +7,7 @@
     "build": "nest build",
     "start": "nest start",
     "start:dev": "nest start --watch",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo",
     "prisma:migrate": "prisma migrate dev --name init"
   },
   "dependencies": {
