@@ -1,9 +1,8 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
+import { buildApiUrl } from "../lib/api";
 import { Event } from "./Calendar";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
 const PALETTE = [
   "#0284c7",

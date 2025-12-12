@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import { buildApiUrl } from "../lib/api";
 import { EventModal } from "./EventModal";
 
 export type Event = {
@@ -13,8 +14,6 @@ export type Event = {
   color?: string;
   comment?: string;
 };
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
 const WEEK_DAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
 
@@ -72,9 +71,17 @@ export const Calendar: React.FC = () => {
   const holidays = useMemo(() => buildHolidaySet(currentYear), [currentYear]);
 
   const fetchEvents = async () => {
-    const res = await fetch(`${API_URL}/api/events`);
-    const data = await res.json();
-    setEvents(data);
+    try {
+      const res = await fetch(buildApiUrl("/api/events"));
+      if (!res.ok) {
+        throw new Error("Не удалось загрузить события");
+      }
+
+      const data = await res.json();
+      setEvents(data);
+    } catch (error) {
+      console.error("Failed to load events", error);
+    }
   };
 
   useEffect(() => {
