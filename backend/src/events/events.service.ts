@@ -6,6 +6,9 @@ import {
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
 import { randomUUID } from 'crypto';
+import Database from 'better-sqlite3';
+import { existsSync, mkdirSync } from 'fs';
+import { join } from 'path';
 
 export interface EventItem {
   id: string;
@@ -20,12 +23,61 @@ export interface EventItem {
 
 @Injectable()
 export class EventsService {
-  private events: EventItem[] = [];
+  private db: Database;
+  private insertStmt: Database.Statement;
+  private selectAllStmt: Database.Statement;
+  private selectByIdStmt: Database.Statement;
+  private updateStmt: Database.Statement;
+  private deleteStmt: Database.Statement;
+
+  constructor() {
+    const dataDir = join(process.cwd(), 'data');
+    if (!existsSync(dataDir)) {
+      mkdirSync(dataDir, { recursive: true });
+    }
+
+    const dbPath = join(dataDir, 'calendar.db');
+    this.db = new Database(dbPath);
+    this.db.exec('PRAGMA journal_mode = WAL');
+
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS events (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        owner TEXT,
+        dept TEXT,
+        startDate TEXT NOT NULL,
+        endDate TEXT NOT NULL,
+        color TEXT,
+        comment TEXT
+      )
+    `);
+
+    this.insertStmt = this.db.prepare(
+      `INSERT INTO events (id, title, owner, dept, startDate, endDate, color, comment)
+       VALUES (@id, @title, @owner, @dept, @startDate, @endDate, @color, @comment)`,
+    );
+    this.selectAllStmt = this.db.prepare(
+      `SELECT * FROM events ORDER BY startDate ASC, endDate ASC, title ASC`,
+    );
+    this.selectByIdStmt = this.db.prepare(`SELECT * FROM events WHERE id = ?`);
+    this.updateStmt = this.db.prepare(
+      `UPDATE events
+       SET title = @title,
+           owner = @owner,
+           dept = @dept,
+           startDate = @startDate,
+           endDate = @endDate,
+           color = @color,
+           comment = @comment
+       WHERE id = @id`,
+    );
+    this.deleteStmt = this.db.prepare(`DELETE FROM events WHERE id = ?`);
+  }
 
   async findAll(): Promise<EventItem[]> {
-    return this.events.sort(
-      (a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime(),
-    );
+    const rows = this.selectAllStmt.all() as DbEvent[];
+    return rows.map((row) => this.mapRowToEvent(row));
   }
 
   async create(dto: CreateEventDto): Promise<EventItem> {
@@ -46,47 +98,69 @@ export class EventsService {
       comment: dto.comment?.trim(),
     };
 
-    this.events.push(event);
+    this.insertStmt.run(this.toDbEvent(event));
     return event;
   }
 
   async update(id: string, dto: UpdateEventDto): Promise<EventItem> {
-    const index = this.events.findIndex((event) => event.id === id);
+    const current = this.selectByIdStmt.get(id) as DbEvent | undefined;
 
-    if (index === -1) {
+    if (!current) {
       throw new NotFoundException('Событие не найдено');
     }
 
-    const current = this.events[index];
     const start = dto.startDate
       ? this.parseDate(dto.startDate, 'start')
       : new Date(current.startDate);
-    const end = dto.endDate ? this.parseDate(dto.endDate, 'end') : new Date(current.endDate);
+    const end = dto.endDate
+      ? this.parseDate(dto.endDate, 'end')
+      : new Date(current.endDate);
 
     this.ensureDateOrder(start, end);
 
+    const currentEvent = this.mapRowToEvent(current);
+
     const updated: EventItem = {
-      ...current,
+      ...currentEvent,
       ...dto,
-      title: dto.title?.trim() ?? current.title,
-      owner: dto.owner?.trim() ?? current.owner,
-      dept: dto.dept?.trim() ?? current.dept,
+      title: dto.title?.trim() ?? currentEvent.title,
+      owner: dto.owner?.trim() ?? currentEvent.owner,
+      dept: dto.dept?.trim() ?? currentEvent.dept,
       startDate: start.toISOString(),
       endDate: end.toISOString(),
-      color: dto.color?.trim() ?? current.color,
-      comment: dto.comment?.trim() ?? current.comment,
+      color: dto.color?.trim() ?? currentEvent.color,
+      comment: dto.comment?.trim() ?? currentEvent.comment,
     };
 
-    this.events[index] = updated;
+    this.updateStmt.run(this.toDbEvent(updated));
     return updated;
   }
 
   async remove(id: string): Promise<void> {
-    const index = this.events.findIndex((event) => event.id === id);
-    if (index === -1) {
+    const result = this.deleteStmt.run(id);
+    if (result.changes === 0) {
       throw new NotFoundException('Событие не найдено');
     }
-    this.events.splice(index, 1);
+  }
+
+  private mapRowToEvent(row: DbEvent): EventItem {
+    return {
+      ...row,
+      owner: row.owner ?? undefined,
+      dept: row.dept ?? undefined,
+      color: row.color ?? undefined,
+      comment: row.comment ?? undefined,
+    };
+  }
+
+  private toDbEvent(event: EventItem): DbEvent {
+    return {
+      ...event,
+      owner: event.owner ?? null,
+      dept: event.dept ?? null,
+      color: event.color ?? null,
+      comment: event.comment ?? null,
+    };
   }
 
   private validateRequiredFields(title?: string, startDate?: string, endDate?: string) {
@@ -116,4 +190,15 @@ export class EventsService {
       throw new BadRequestException('Дата окончания раньше даты начала');
     }
   }
+}
+
+interface DbEvent {
+  id: string;
+  title: string;
+  owner: string | null;
+  dept: string | null;
+  startDate: string;
+  endDate: string;
+  color: string | null;
+  comment: string | null;
 }
