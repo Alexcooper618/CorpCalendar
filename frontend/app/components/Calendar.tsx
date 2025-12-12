@@ -212,6 +212,7 @@ export const Calendar: React.FC = () => {
                                 borderColor: ev.color || "#bae6fd",
                               }}
                               title={`${ev.title}${ev.dept ? ` • ${ev.dept}` : ""}`}
+                              aria-hidden
                             >
                               {ev.title}
                             </button>
