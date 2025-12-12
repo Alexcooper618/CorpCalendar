@@ -55,6 +55,14 @@ function normalizeDate(date: Date) {
   return copy;
 }
 
+function formatDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
 export const Calendar: React.FC = () => {
   const [events, setEvents] = useState<Event[]>([]);
   const [rangeForModal, setRangeForModal] = useState<{
@@ -66,7 +74,7 @@ export const Calendar: React.FC = () => {
 
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
 
-  const todayKey = new Date().toISOString().slice(0, 10);
+  const todayKey = formatDateKey(new Date());
   const holidays = useMemo(() => buildHolidaySet(currentYear), [currentYear]);
 
   const fetchEvents = async () => {
@@ -90,17 +98,23 @@ export const Calendar: React.FC = () => {
   const months = useMemo(() => Array.from({ length: 12 }, (_, m) => m), []);
 
   const getEventsForDay = (day: Date) => {
-    const key = day.toISOString().slice(0, 10);
+    const key = formatDateKey(day);
 
     return events.filter((e) => {
-      const start = e.startDate.slice(0, 10);
-      const end = e.endDate.slice(0, 10);
+      const start = formatDateKey(new Date(e.startDate));
+      const end = formatDateKey(new Date(e.endDate));
       return key >= start && key <= end;
     });
   };
 
-  const openDayDetails = (day: Date) => {
-    setDayDetailsDate(day);
+  const handleDayCellClick = (day: Date, dayEvents: Event[]) => {
+    if (dayEvents.length > 0) {
+      setDayDetailsDate(day);
+      return;
+    }
+
+    const normalizedDay = normalizeDate(day);
+    setRangeForModal({ start: normalizedDay, end: normalizedDay });
   };
 
   const monthTitle = (month: number) =>
@@ -166,7 +180,7 @@ export const Calendar: React.FC = () => {
                   ))}
 
                   {days.map((day) => {
-                    const key = day.toISOString().slice(0, 10);
+                    const key = formatDateKey(day);
                     const dayEvents = getEventsForDay(day);
                     const isToday = key === todayKey;
                     const isWeekend = day.getDay() === 0 || day.getDay() === 6;
@@ -175,7 +189,7 @@ export const Calendar: React.FC = () => {
                     return (
                       <div
                         key={key}
-                        onClick={() => openDayDetails(day)}
+                        onClick={() => handleDayCellClick(day, dayEvents)}
                         className={`bg-white min-h-[80px] p-1 cursor-pointer transition relative
                           ${isWeekend ? "bg-slate-50" : ""}
                           ${isHoliday ? "bg-amber-50" : ""}
@@ -195,18 +209,9 @@ export const Calendar: React.FC = () => {
 
                         <div className="space-y-1">
                           {dayEvents.slice(0, 3).map((ev) => (
-                            <button
+                            <div
                               key={ev.id}
-                              onMouseDown={(e) => e.stopPropagation()}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setRangeForModal({
-                                  start: new Date(ev.startDate),
-                                  end: new Date(ev.endDate),
-                                  event: ev,
-                                });
-                              }}
-                              className="w-full text-left truncate rounded-full px-1.5 py-0.5 text-[10px] text-slate-800 border hover:ring-2 hover:ring-blue-300"
+                              className="w-full text-left truncate rounded-full px-1.5 py-0.5 text-[10px] text-slate-800 border"
                               style={{
                                 backgroundColor: ev.color || "#e0f2fe",
                                 borderColor: ev.color || "#bae6fd",
@@ -215,7 +220,7 @@ export const Calendar: React.FC = () => {
                               aria-hidden
                             >
                               {ev.title}
-                            </button>
+                            </div>
                           ))}
                         </div>
                       </div>
