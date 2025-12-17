@@ -1,5 +1,6 @@
 import "../styles/globals.css";
 import React from "react";
+import { PageTabs } from "./components/PageTabs";
 
 export const metadata = {
   title: "CSI Calendar",
@@ -15,6 +16,7 @@ export default function RootLayout({
     <html lang="ru">
       <body className="min-h-screen bg-slate-100 text-slate-900">
         <div className="max-w-[1400px] mx-auto px-4 py-6">
+          <PageTabs />
           {children}
         </div>
       </body>
