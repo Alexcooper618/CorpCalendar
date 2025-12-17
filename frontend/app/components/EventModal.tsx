@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { buildApiUrl } from "../lib/api";
-import { Event } from "./Calendar";
+import { Event, EventType, Product } from "./Calendar";
 
 const PALETTE = [
   "#0284c7",
@@ -24,14 +24,23 @@ function toInputDate(date: Date) {
 
 export const EventModal = ({
   range,
+  products,
+  productsError,
+  isLoadingProducts,
+  onReloadProducts,
   onClose,
   onSaved,
 }: {
   range: { start: Date; end?: Date; event?: Event };
+  products: Product[];
+  productsError?: string;
+  isLoadingProducts: boolean;
+  onReloadProducts: () => void;
   onClose: () => void;
   onSaved: () => void;
 }) => {
   const [title, setTitle] = useState(range.event?.title || "");
+  const [type, setType] = useState<EventType>(range.event?.type || "custom");
   const [dept, setDept] = useState(range.event?.dept || "");
   const [owner, setOwner] = useState(range.event?.owner || "");
   const [startDate, setStartDate] = useState(
@@ -39,6 +48,12 @@ export const EventModal = ({
   );
   const [endDate, setEndDate] = useState(
     toInputDate(new Date(range.event?.endDate || range.end || range.start))
+  );
+  const [productId, setProductId] = useState(range.event?.productId || "");
+  const [plannedCsiDate, setPlannedCsiDate] = useState(
+    range.event?.plannedCsiDate
+      ? toInputDate(new Date(range.event.plannedCsiDate))
+      : ""
   );
   const [color, setColor] = useState(range.event?.color || PALETTE[0]);
   const [comment, setComment] = useState(range.event?.comment || "");
@@ -61,24 +76,79 @@ export const EventModal = ({
     return `Опрос ${formatter.format(range.start)}`;
   }, [range.end, range.start]);
 
+  const selectedProduct = useMemo(
+    () => products.find((product) => product.id === productId),
+    [productId, products]
+  );
+
+  const previewTitle = useMemo(() => {
+    if (type === "itProduct") {
+      return selectedProduct?.title || title || titlePlaceholder;
+    }
+
+    return title || titlePlaceholder;
+  }, [selectedProduct?.title, title, titlePlaceholder, type]);
+
   const updateFromRange = () => {
     setTitle(range.event?.title || "");
+    setType(range.event?.type || "custom");
     setDept(range.event?.dept || "");
     setOwner(range.event?.owner || "");
     setStartDate(toInputDate(new Date(range.event?.startDate || range.start)));
     setEndDate(toInputDate(new Date(range.event?.endDate || range.end || range.start)));
+    setProductId(range.event?.productId || "");
+    setPlannedCsiDate(
+      range.event?.plannedCsiDate
+        ? toInputDate(new Date(range.event.plannedCsiDate))
+        : ""
+    );
     setColor(range.event?.color || PALETTE[0]);
     setComment(range.event?.comment || "");
     setError("");
+  };
+
+  const handleTypeChange = (value: EventType) => {
+    setType(value);
+
+    if (value === "custom") {
+      setProductId("");
+      setPlannedCsiDate("");
+      return;
+    }
+
+    if (!productId && products.length > 0) {
+      setProductId(products[0].id);
+    }
   };
 
   useEffect(() => {
     updateFromRange();
   }, [range]);
 
+  useEffect(() => {
+    if (type === "itProduct" && !productId && products.length > 0) {
+      setProductId(products[0].id);
+    }
+  }, [productId, products, type]);
+
+  useEffect(() => {
+    if (type === "itProduct" && selectedProduct) {
+      setTitle(selectedProduct.title);
+
+      if (!plannedCsiDate && selectedProduct.plannedCsiDate) {
+        setPlannedCsiDate(toInputDate(new Date(selectedProduct.plannedCsiDate)));
+      }
+    }
+  }, [plannedCsiDate, selectedProduct, type]);
+
   const save = async () => {
-    if (!endDate) {
-      setError("Укажите дату окончания опроса");
+    if (!startDate || !endDate) {
+      setError("Укажите даты начала и окончания опроса");
+      return;
+    }
+
+    if (type === "itProduct" && !productId) {
+      setError("Выберите продукт для опроса IT-продукта");
       return;
     }
 
@@ -90,6 +160,23 @@ export const EventModal = ({
       return;
     }
 
+    const finalTitle =
+      type === "itProduct"
+        ? selectedProduct?.title || title || titlePlaceholder
+        : title || titlePlaceholder;
+
+    if (!finalTitle.trim()) {
+      setError("Укажите название опроса");
+      return;
+    }
+
+    const plannedCsiDateIso =
+      plannedCsiDate === ""
+        ? null
+        : plannedCsiDate
+        ? new Date(plannedCsiDate).toISOString()
+        : undefined;
+
     setError("");
     setIsSaving(true);
 
@@ -100,7 +187,10 @@ export const EventModal = ({
           method: isEditing ? "PATCH" : "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            title: title || titlePlaceholder,
+            title: finalTitle,
+            type,
+            productId: type === "itProduct" ? productId : undefined,
+            plannedCsiDate: plannedCsiDateIso,
             startDate: start.toISOString(),
             endDate: end.toISOString(),
             dept: dept || undefined,
@@ -169,7 +259,7 @@ export const EventModal = ({
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-xs text-slate-500">{heading}</p>
-            <h3 className="font-semibold text-lg">{title || titlePlaceholder}</h3>
+            <h3 className="font-semibold text-lg">{previewTitle}</h3>
           </div>
           <button
             onClick={onClose}
@@ -180,16 +270,86 @@ export const EventModal = ({
           </button>
         </div>
 
+        <div className="space-y-2">
+          <span className="text-sm text-slate-700">Тип опроса</span>
+          <div className="flex flex-wrap gap-4 text-sm">
+            <label className="flex items-center gap-2">
+              <input
+                type="radio"
+                checked={type === "custom"}
+                onChange={() => handleTypeChange("custom")}
+              />
+              <span>Пользовательский</span>
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="radio"
+                checked={type === "itProduct"}
+                onChange={() => handleTypeChange("itProduct")}
+              />
+              <span>IT продукт</span>
+            </label>
+            <button
+              type="button"
+              onClick={onReloadProducts}
+              className="text-xs text-blue-700 underline decoration-dotted"
+            >
+              Обновить справочник
+            </button>
+          </div>
+          {productsError && (
+            <div className="text-xs text-red-600">{productsError}</div>
+          )}
+          {type === "itProduct" && !productsError && (
+            <div className="text-xs text-slate-600">
+              {isLoadingProducts
+                ? "Справочник продуктов загружается..."
+                : `Доступно ${products.length} продукт(ов)`}
+            </div>
+          )}
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <label className="space-y-1 text-sm">
-            <span className="text-slate-700">Название</span>
-            <input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder={titlePlaceholder}
-              className="w-full border rounded-md px-3 py-2 text-sm"
-            />
-          </label>
+          {type === "custom" ? (
+            <label className="space-y-1 text-sm">
+              <span className="text-slate-700">Название</span>
+              <input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder={titlePlaceholder}
+                className="w-full border rounded-md px-3 py-2 text-sm"
+              />
+            </label>
+          ) : (
+            <label className="space-y-1 text-sm">
+              <span className="text-slate-700">IT продукт</span>
+              <select
+                value={productId}
+                onChange={(e) => setProductId(e.target.value)}
+                className="w-full border rounded-md px-3 py-2 text-sm"
+                disabled={isLoadingProducts}
+              >
+                <option value="">
+                  {isLoadingProducts ? "Загрузка..." : "Выберите продукт"}
+                </option>
+                {products.map((product) => (
+                  <option key={product.id} value={product.id}>
+                    {product.title}
+                  </option>
+                ))}
+              </select>
+              <div className="text-xs text-slate-600">
+                {selectedProduct ? (
+                  <span>
+                    PO: {selectedProduct.productOwner || "—"} • Кластер: {" "}
+                    {selectedProduct.cluster || "—"}
+                  </span>
+                ) : (
+                  <span>Название заполнится автоматически</span>
+                )}
+              </div>
+            </label>
+          )}
 
           <label className="space-y-1 text-sm">
             <span className="text-slate-700">Ответственный</span>
@@ -232,7 +392,28 @@ export const EventModal = ({
               <p className="text-xs text-amber-600">Нужна дата окончания</p>
             )}
           </div>
-        </div>
+
+              {type === "itProduct" && (
+                <label className="space-y-1 text-sm">
+                  <span className="text-slate-700">Плановая дата CSI</span>
+                  <input
+                    type="date"
+                value={plannedCsiDate}
+                onChange={(e) => setPlannedCsiDate(e.target.value)}
+                className="w-full border rounded-md px-3 py-2 text-sm"
+                  />
+                  {selectedProduct?.plannedCsiDate && !plannedCsiDate && (
+                    <p className="text-xs text-slate-500">
+                      По умолчанию: {" "}
+                      {new Date(selectedProduct.plannedCsiDate).toLocaleDateString(
+                        "ru-RU",
+                        { day: "2-digit", month: "2-digit", year: "numeric" }
+                      )}
+                    </p>
+                  )}
+                </label>
+              )}
+            </div>
 
         <div className="space-y-2">
           <span className="text-sm text-slate-700">Цветовая метка</span>

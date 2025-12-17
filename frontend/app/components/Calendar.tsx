@@ -1,16 +1,29 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { buildApiUrl } from "../lib/api";
 import { EventModal } from "./EventModal";
+
+export type EventType = "custom" | "itProduct";
+
+export type Product = {
+  id: string;
+  title: string;
+  productOwner?: string;
+  cluster?: string;
+  plannedCsiDate?: string;
+};
 
 export type Event = {
   id: string;
   title: string;
+  type: EventType;
   startDate: string;
   endDate: string;
   dept?: string;
   owner?: string;
+  productId?: string | null;
+  plannedCsiDate?: string | null;
   color?: string;
   comment?: string;
 };
@@ -110,6 +123,9 @@ function formatDateKey(date: Date) {
 
 export const Calendar: React.FC = () => {
   const [events, setEvents] = useState<Event[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [isLoadingProducts, setIsLoadingProducts] = useState(false);
+  const [productsError, setProductsError] = useState("");
   const [rangeForModal, setRangeForModal] = useState<{
     start: Date;
     end?: Date;
@@ -130,15 +146,45 @@ export const Calendar: React.FC = () => {
       }
 
       const data = await res.json();
-      setEvents(data);
+      setEvents(
+        (data as Event[]).map((event) => ({
+          ...event,
+          type: event.type ?? "custom",
+        }))
+      );
     } catch (error) {
       console.error("Failed to load events", error);
     }
   };
 
+  const fetchProducts = useCallback(async () => {
+    setProductsError("");
+    try {
+      setIsLoadingProducts(true);
+      const res = await fetch(buildApiUrl("/api/products"));
+      if (!res.ok) {
+        throw new Error("Не удалось загрузить продукты");
+      }
+
+      const data = await res.json();
+      setProducts(data as Product[]);
+    } catch (error) {
+      console.error("Failed to load products", error);
+      setProductsError("Не удалось загрузить справочник продуктов");
+    } finally {
+      setIsLoadingProducts(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchEvents();
   }, []);
+
+  useEffect(() => {
+    if (rangeForModal || dayDetailsDate) {
+      fetchProducts();
+    }
+  }, [dayDetailsDate, fetchProducts, rangeForModal]);
 
   const months = useMemo(() => Array.from({ length: 12 }, (_, m) => m), []);
 
@@ -151,6 +197,20 @@ export const Calendar: React.FC = () => {
       return key >= start && key <= end;
     });
   };
+
+  const resolveEventTitle = useCallback(
+    (event: Event) => {
+      if (event.type === "itProduct" && event.productId) {
+        const product = products.find((p) => p.id === event.productId);
+        if (product?.title) {
+          return product.title;
+        }
+      }
+
+      return event.title;
+    },
+    [products]
+  );
 
   const handleDayCellClick = (day: Date, dayEvents: Event[]) => {
     if (dayEvents.length > 0) {
@@ -286,6 +346,9 @@ export const Calendar: React.FC = () => {
                           {dayEvents.slice(0, 3).map((ev) => {
                             const startKey = formatDateKey(new Date(ev.startDate));
                             const isStartDay = key === startKey;
+                            const displayTitle = resolveEventTitle(ev);
+                            const typeLabel =
+                              ev.type === "itProduct" ? "IT-продукт" : "Пользовательский";
 
                             return (
                               <div
@@ -296,10 +359,12 @@ export const Calendar: React.FC = () => {
                                   borderColor: ev.color || "#bae6fd",
                                   opacity: isStartDay ? 1 : 0.5,
                                 }}
-                                title={`${ev.title}${ev.dept ? ` • ${ev.dept}` : ""}`}
+                                title={`${displayTitle} • ${typeLabel}${
+                                  ev.dept ? ` • ${ev.dept}` : ""
+                                }`}
                                 aria-hidden
                               >
-                                {ev.title}
+                                {displayTitle}
                               </div>
                             );
                           })}
@@ -318,6 +383,7 @@ export const Calendar: React.FC = () => {
         <DayDetailsModal
           date={dayDetailsDate}
           events={getEventsForDay(dayDetailsDate)}
+          products={products}
           onClose={() => setDayDetailsDate(null)}
           onAdd={() =>
             setRangeForModal({
@@ -339,6 +405,10 @@ export const Calendar: React.FC = () => {
       {rangeForModal && (
         <EventModal
           range={rangeForModal}
+          products={products}
+          productsError={productsError}
+          isLoadingProducts={isLoadingProducts}
+          onReloadProducts={fetchProducts}
           onClose={() => setRangeForModal(null)}
           onSaved={() => {
             fetchEvents();
@@ -353,6 +423,7 @@ export const Calendar: React.FC = () => {
 const DayDetailsModal = ({
   date,
   events,
+  products,
   onClose,
   onAdd,
   onEdit,
@@ -360,6 +431,7 @@ const DayDetailsModal = ({
 }: {
   date: Date;
   events: Event[];
+  products: Product[];
   onClose: () => void;
   onAdd: () => void;
   onEdit: (event: Event) => void;
@@ -440,79 +512,122 @@ const DayDetailsModal = ({
             <div className="text-sm text-slate-500">В этот день пока нет событий.</div>
           )}
 
-          {events.map((event) => (
-            <div
-              key={event.id}
-              className="border rounded-lg p-3 flex flex-col gap-2 bg-slate-50"
-              style={{ borderColor: event.color || "#e2e8f0" }}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <span
-                    className="w-3 h-3 rounded-full border"
-                    style={{
-                      backgroundColor: event.color || "#e0f2fe",
-                      borderColor: event.color || "#bae6fd",
-                    }}
-                  />
-                  <div className="font-semibold text-sm truncate" title={event.title}>
-                    {event.title}
+          {events.map((event) => {
+            const product = products.find((p) => p.id === event.productId);
+            const displayTitle =
+              event.type === "itProduct"
+                ? product?.title ?? event.title
+                : event.title;
+            const plannedDate = event.plannedCsiDate ?? product?.plannedCsiDate;
+            const typeLabel = event.type === "itProduct" ? "IT продукт" : "Пользовательский";
+
+            return (
+              <div
+                key={event.id}
+                className="border rounded-lg p-3 flex flex-col gap-2 bg-slate-50"
+                style={{ borderColor: event.color || "#e2e8f0" }}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="w-3 h-3 rounded-full border"
+                      style={{
+                        backgroundColor: event.color || "#e0f2fe",
+                        borderColor: event.color || "#bae6fd",
+                      }}
+                    />
+                    <div className="flex items-center gap-2">
+                      <div className="font-semibold text-sm truncate" title={displayTitle}>
+                        {displayTitle}
+                      </div>
+                      <span className="px-2 py-0.5 text-[11px] rounded-full bg-white border text-slate-700">
+                        {typeLabel}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      className="text-xs text-blue-700 hover:underline"
+                      onClick={() => onEdit(event)}
+                    >
+                      Редактировать
+                    </button>
+                    <button
+                      className="text-xs text-red-700 hover:underline disabled:opacity-60"
+                      onClick={() => handleDelete(event)}
+                      disabled={isDeletingId === event.id}
+                    >
+                      {isDeletingId === event.id ? "Удаление..." : "Удалить"}
+                    </button>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    className="text-xs text-blue-700 hover:underline"
-                    onClick={() => onEdit(event)}
-                  >
-                    Редактировать
-                  </button>
-                  <button
-                    className="text-xs text-red-700 hover:underline disabled:opacity-60"
-                    onClick={() => handleDelete(event)}
-                    disabled={isDeletingId === event.id}
-                  >
-                    {isDeletingId === event.id ? "Удаление..." : "Удалить"}
-                  </button>
-                </div>
-              </div>
 
-              <div className="text-xs text-slate-600 space-y-1">
-                {(event.dept || event.owner) && (
-                  <div className="flex flex-wrap gap-2">
-                    {event.dept && (
-                      <span className="px-2 py-0.5 rounded-full bg-white border text-slate-700">
-                        {event.dept}
-                      </span>
-                    )}
-                    {event.owner && (
-                      <span className="px-2 py-0.5 rounded-full bg-white border text-slate-700">
-                        {event.owner}
-                      </span>
-                    )}
+                <div className="text-xs text-slate-600 space-y-1">
+                  {event.type === "itProduct" && product && (
+                    <div className="flex flex-wrap gap-2">
+                      {product.productOwner && (
+                        <span className="px-2 py-0.5 rounded-full bg-white border text-slate-700">
+                          PO: {product.productOwner}
+                        </span>
+                      )}
+                      {product.cluster && (
+                        <span className="px-2 py-0.5 rounded-full bg-white border text-slate-700">
+                          Кластер: {product.cluster}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {(event.dept || event.owner) && (
+                    <div className="flex flex-wrap gap-2">
+                      {event.dept && (
+                        <span className="px-2 py-0.5 rounded-full bg-white border text-slate-700">
+                          {event.dept}
+                        </span>
+                      )}
+                      {event.owner && (
+                        <span className="px-2 py-0.5 rounded-full bg-white border text-slate-700">
+                          {event.owner}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">Период:</span>
+                    <span>
+                      {new Date(event.startDate).toLocaleDateString("ru-RU", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "numeric",
+                      })}
+                      {" — "}
+                      {new Date(event.endDate).toLocaleDateString("ru-RU", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "numeric",
+                      })}
+                    </span>
                   </div>
-                )}
 
-                <div className="flex items-center gap-2">
-                  <span className="font-medium">Период:</span>
-                  <span>
-                    {new Date(event.startDate).toLocaleDateString("ru-RU", {
-                      day: "2-digit",
-                      month: "2-digit",
-                      year: "numeric",
-                    })}
-                    {" — "}
-                    {new Date(event.endDate).toLocaleDateString("ru-RU", {
-                      day: "2-digit",
-                      month: "2-digit",
-                      year: "numeric",
-                    })}
-                  </span>
+                  {plannedDate && (
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">План CSI:</span>
+                      <span>
+                        {new Date(plannedDate).toLocaleDateString("ru-RU", {
+                          day: "2-digit",
+                          month: "2-digit",
+                          year: "numeric",
+                        })}
+                      </span>
+                    </div>
+                  )}
+
+                  {event.comment && <div>Комментарий: {event.comment}</div>}
                 </div>
-
-                {event.comment && <div>Комментарий: {event.comment}</div>}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>
