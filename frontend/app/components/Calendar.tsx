@@ -246,53 +246,24 @@ export const Calendar: React.FC = () => {
                       "border",
                       "bg-white",
                       "border-slate-100",
-                      "hover:-translate-y-[1px]",
-                      "hover:shadow-sm",
                     ];
 
                     if (isWeekend) {
-                      dayCellClasses.push(
-                        "bg-slate-100",
-                        "border-slate-300",
-                        "shadow-[inset_0_0_0_1px_rgba(100,116,139,0.35)]"
-                      );
+                      dayCellClasses.push("bg-slate-50", "border-slate-200");
                     }
 
                     if (isProductionDayOff) {
-                      dayCellClasses.push(
-                        "bg-amber-100",
-                        "border-amber-300",
-                        "shadow-[inset_0_0_0_1px_rgba(251,191,36,0.5)]"
-                      );
+                      dayCellClasses.push("bg-amber-50", "border-amber-200");
                     }
 
-                    const dayNumberClasses = [
-                      "px-1",
-                      "rounded",
-                      "text-slate-700",
-                      "inline-flex",
-                      "items-center",
-                      "gap-1",
-                    ];
+                    const dayNumberClasses = ["px-1", "rounded", "text-slate-700"];
 
                     if (isWeekend && !isProductionDayOff && !isToday) {
-                      dayNumberClasses.push(
-                        "text-slate-700",
-                        "font-semibold",
-                        "bg-slate-200",
-                        "border",
-                        "border-slate-300"
-                      );
+                      dayNumberClasses.push("text-slate-500", "font-medium");
                     }
 
                     if (isProductionDayOff && !isToday) {
-                      dayNumberClasses.push(
-                        "bg-amber-200",
-                        "text-amber-900",
-                        "font-semibold",
-                        "border",
-                        "border-amber-300"
-                      );
+                      dayNumberClasses.push("bg-amber-100", "text-amber-800", "font-semibold");
                     }
 
                     if (isToday) {
