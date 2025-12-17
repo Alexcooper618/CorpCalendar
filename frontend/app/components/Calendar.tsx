@@ -283,20 +283,26 @@ export const Calendar: React.FC = () => {
                         </div>
 
                         <div className="space-y-1">
-                          {dayEvents.slice(0, 3).map((ev) => (
-                            <div
-                              key={ev.id}
-                              className="w-full text-left truncate rounded-full px-1.5 py-0.5 text-[10px] text-slate-800 border"
-                              style={{
-                                backgroundColor: ev.color || "#e0f2fe",
-                                borderColor: ev.color || "#bae6fd",
-                              }}
-                              title={`${ev.title}${ev.dept ? ` • ${ev.dept}` : ""}`}
-                              aria-hidden
-                            >
-                              {ev.title}
-                            </div>
-                          ))}
+                          {dayEvents.slice(0, 3).map((ev) => {
+                            const startKey = formatDateKey(new Date(ev.startDate));
+                            const isStartDay = key === startKey;
+
+                            return (
+                              <div
+                                key={ev.id}
+                                className="w-full text-left truncate rounded-full px-1.5 py-0.5 text-[10px] text-slate-800 border"
+                                style={{
+                                  backgroundColor: ev.color || "#e0f2fe",
+                                  borderColor: ev.color || "#bae6fd",
+                                  opacity: isStartDay ? 1 : 0.5,
+                                }}
+                                title={`${ev.title}${ev.dept ? ` • ${ev.dept}` : ""}`}
+                                aria-hidden
+                              >
+                                {ev.title}
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     );
