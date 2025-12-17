@@ -34,6 +34,45 @@ const HOLIDAY_MONTH_DAYS = [
   "11-04",
 ];
 
+const PRODUCTION_CALENDAR: Record<number, string[]> = {
+  2025: [
+    "2025-01-01",
+    "2025-01-02",
+    "2025-01-03",
+    "2025-01-04",
+    "2025-01-05",
+    "2025-01-06",
+    "2025-01-07",
+    "2025-01-08",
+    "2025-02-23",
+    "2025-02-24",
+    "2025-03-08",
+    "2025-03-10",
+    "2025-05-01",
+    "2025-05-09",
+    "2025-06-12",
+    "2025-11-04",
+  ],
+  2026: [
+    "2026-01-01",
+    "2026-01-02",
+    "2026-01-03",
+    "2026-01-04",
+    "2026-01-05",
+    "2026-01-06",
+    "2026-01-07",
+    "2026-01-08",
+    "2026-02-23",
+    "2026-03-08",
+    "2026-03-09",
+    "2026-05-01",
+    "2026-05-09",
+    "2026-05-11",
+    "2026-06-12",
+    "2026-11-04",
+  ],
+};
+
 function getMonthDays(year: number, month: number) {
   const date = new Date(year, month, 1);
   const days: Date[] = [];
@@ -46,6 +85,12 @@ function getMonthDays(year: number, month: number) {
 }
 
 function buildHolidaySet(year: number) {
+  const productionDays = PRODUCTION_CALENDAR[year];
+
+  if (productionDays) {
+    return new Set(productionDays);
+  }
+
   return new Set(HOLIDAY_MONTH_DAYS.map((md) => `${year}-${md}`));
 }
 
@@ -75,7 +120,7 @@ export const Calendar: React.FC = () => {
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
 
   const todayKey = formatDateKey(new Date());
-  const holidays = useMemo(() => buildHolidaySet(currentYear), [currentYear]);
+  const productionDayOffs = useMemo(() => buildHolidaySet(currentYear), [currentYear]);
 
   const fetchEvents = async () => {
     try {
@@ -160,9 +205,15 @@ export const Calendar: React.FC = () => {
                   <h3 className="text-base font-semibold capitalize">
                     {monthTitle(month)}
                   </h3>
-                  <div className="flex items-center gap-1 text-[10px] text-slate-500">
-                    <span className="px-1 rounded bg-amber-50 border border-amber-200" />
-                    <span>Праздники</span>
+                  <div className="flex items-center gap-3 text-[10px] text-slate-500">
+                    <div className="flex items-center gap-1">
+                      <span className="px-1 rounded bg-slate-50 border border-slate-200" />
+                      <span>Выходные</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="px-1 rounded bg-amber-50 border border-amber-200" />
+                      <span>Праздники / переносы</span>
+                    </div>
                   </div>
                 </div>
 
@@ -184,7 +235,7 @@ export const Calendar: React.FC = () => {
                     const dayEvents = getEventsForDay(day);
                     const isToday = key === todayKey;
                     const isWeekend = day.getDay() === 0 || day.getDay() === 6;
-                    const isHoliday = holidays.has(key);
+                    const isProductionDayOff = productionDayOffs.has(key);
 
                     return (
                       <div
@@ -192,7 +243,7 @@ export const Calendar: React.FC = () => {
                         onClick={() => handleDayCellClick(day, dayEvents)}
                         className={`bg-white min-h-[80px] p-1 cursor-pointer transition relative
                           ${isWeekend ? "bg-slate-50" : ""}
-                          ${isHoliday ? "bg-amber-50" : ""}
+                          ${isProductionDayOff ? "bg-amber-50" : ""}
                         `}
                       >
                         <div className="flex justify-between items-center text-[11px] mb-1">
