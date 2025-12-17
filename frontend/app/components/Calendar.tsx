@@ -207,11 +207,11 @@ export const Calendar: React.FC = () => {
                   </h3>
                   <div className="flex items-center gap-3 text-[10px] text-slate-500">
                     <div className="flex items-center gap-1">
-                      <span className="px-1 rounded bg-slate-50 border border-slate-200" />
+                      <span className="px-1 rounded bg-slate-100 border border-slate-300" />
                       <span>Выходные</span>
                     </div>
                     <div className="flex items-center gap-1">
-                      <span className="px-1 rounded bg-amber-50 border border-amber-200" />
+                      <span className="px-1 rounded bg-amber-100 border border-amber-300" />
                       <span>Праздники / переносы</span>
                     </div>
                   </div>
@@ -237,23 +237,76 @@ export const Calendar: React.FC = () => {
                     const isWeekend = day.getDay() === 0 || day.getDay() === 6;
                     const isProductionDayOff = productionDayOffs.has(key);
 
+                    const dayCellClasses = [
+                      "min-h-[80px]",
+                      "p-1",
+                      "cursor-pointer",
+                      "transition",
+                      "relative",
+                      "border",
+                      "bg-white",
+                      "border-slate-100",
+                      "hover:-translate-y-[1px]",
+                      "hover:shadow-sm",
+                    ];
+
+                    if (isWeekend) {
+                      dayCellClasses.push(
+                        "bg-slate-100",
+                        "border-slate-300",
+                        "shadow-[inset_0_0_0_1px_rgba(100,116,139,0.35)]"
+                      );
+                    }
+
+                    if (isProductionDayOff) {
+                      dayCellClasses.push(
+                        "bg-amber-100",
+                        "border-amber-300",
+                        "shadow-[inset_0_0_0_1px_rgba(251,191,36,0.5)]"
+                      );
+                    }
+
+                    const dayNumberClasses = [
+                      "px-1",
+                      "rounded",
+                      "text-slate-700",
+                      "inline-flex",
+                      "items-center",
+                      "gap-1",
+                    ];
+
+                    if (isWeekend && !isProductionDayOff && !isToday) {
+                      dayNumberClasses.push(
+                        "text-slate-700",
+                        "font-semibold",
+                        "bg-slate-200",
+                        "border",
+                        "border-slate-300"
+                      );
+                    }
+
+                    if (isProductionDayOff && !isToday) {
+                      dayNumberClasses.push(
+                        "bg-amber-200",
+                        "text-amber-900",
+                        "font-semibold",
+                        "border",
+                        "border-amber-300"
+                      );
+                    }
+
+                    if (isToday) {
+                      dayNumberClasses.push("bg-blue-600", "text-white");
+                    }
+
                     return (
                       <div
                         key={key}
                         onClick={() => handleDayCellClick(day, dayEvents)}
-                        className={`bg-white min-h-[80px] p-1 cursor-pointer transition relative
-                          ${isWeekend ? "bg-slate-50" : ""}
-                          ${isProductionDayOff ? "bg-amber-50" : ""}
-                        `}
+                        className={dayCellClasses.join(" ")}
                       >
                         <div className="flex justify-between items-center text-[11px] mb-1">
-                          <span
-                            className={`px-1 rounded ${
-                              isToday
-                                ? "bg-blue-600 text-white"
-                                : "text-slate-700"
-                            }`}
-                          >
+                          <span className={dayNumberClasses.join(" ")}>
                             {day.getDate()}
                           </span>
                         </div>
