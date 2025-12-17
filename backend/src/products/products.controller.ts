@@ -1,54 +1,34 @@
-import { Controller, Get } from '@nestjs/common';
-
-interface ProductItem {
-  id: string;
-  title: string;
-  productOwner?: string;
-  cluster?: string;
-  plannedCsiDate?: string;
-}
-
-const PRODUCTS: ProductItem[] = [
-  {
-    id: 'p1',
-    title: 'Корпоративный портал',
-    productOwner: 'Иван Петров',
-    cluster: 'Внутренние сервисы',
-    plannedCsiDate: '2025-02-10',
-  },
-  {
-    id: 'p2',
-    title: 'Мобильное приложение клиентов',
-    productOwner: 'Алина Смирнова',
-    cluster: 'Витрина и мобильные каналы',
-    plannedCsiDate: '2025-03-18',
-  },
-  {
-    id: 'p3',
-    title: 'Платформа аналитики',
-    productOwner: 'Дмитрий Жуков',
-    cluster: 'Данные и аналитика',
-    plannedCsiDate: '2025-04-05',
-  },
-  {
-    id: 'p4',
-    title: 'Интернет-банк',
-    productOwner: 'Екатерина Орлова',
-    cluster: 'Дистанционное обслуживание',
-  },
-  {
-    id: 'p5',
-    title: 'Система обучения сотрудников',
-    productOwner: 'Руслан Абрамов',
-    cluster: 'HR Tech',
-  },
-];
+import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
+import { ProductsService } from './products.service';
+import { CreateProductDto } from './dto/create-product.dto';
+import { UpdateProductDto } from './dto/update-product.dto';
 
 @Controller('products')
 export class ProductsController {
+  constructor(private readonly productsService: ProductsService) {}
+
   @Get()
-  findAll(): ProductItem[] {
-    return PRODUCTS;
+  findAll() {
+    return this.productsService.findAll();
+  }
+
+  @Post()
+  create(@Body() dto: CreateProductDto) {
+    return this.productsService.create(dto);
+  }
+
+  @Post('bulk')
+  createMany(@Body() dtos: CreateProductDto[]) {
+    return this.productsService.createMany(dtos);
+  }
+
+  @Patch(':id')
+  update(@Param('id') id: string, @Body() dto: UpdateProductDto) {
+    return this.productsService.update(id, dto);
+  }
+
+  @Delete(':id')
+  remove(@Param('id') id: string) {
+    return this.productsService.remove(id);
   }
 }
-
