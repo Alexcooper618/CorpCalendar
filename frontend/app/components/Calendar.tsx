@@ -207,11 +207,11 @@ export const Calendar: React.FC = () => {
                   </h3>
                   <div className="flex items-center gap-3 text-[10px] text-slate-500">
                     <div className="flex items-center gap-1">
-                      <span className="px-1 rounded bg-slate-100 ring-1 ring-slate-200" />
+                      <span className="px-1 rounded bg-slate-50 border border-slate-200" />
                       <span>Выходные</span>
                     </div>
                     <div className="flex items-center gap-1">
-                      <span className="px-1 rounded bg-amber-100 ring-1 ring-amber-300" />
+                      <span className="px-1 rounded bg-amber-50 border border-amber-200" />
                       <span>Праздники / переносы</span>
                     </div>
                   </div>
@@ -237,19 +237,14 @@ export const Calendar: React.FC = () => {
                     const isWeekend = day.getDay() === 0 || day.getDay() === 6;
                     const isProductionDayOff = productionDayOffs.has(key);
 
-                    const dayClasses = [
-                      "bg-white min-h-[80px] p-1 cursor-pointer transition relative",
-                      isWeekend && "bg-slate-100 ring-1 ring-slate-200",
-                      isProductionDayOff && "bg-amber-100 ring-1 ring-amber-300",
-                    ]
-                      .filter(Boolean)
-                      .join(" ");
-
                     return (
                       <div
                         key={key}
                         onClick={() => handleDayCellClick(day, dayEvents)}
-                        className={dayClasses}
+                        className={`bg-white min-h-[80px] p-1 cursor-pointer transition relative
+                          ${isWeekend ? "bg-slate-50" : ""}
+                          ${isProductionDayOff ? "bg-amber-50" : ""}
+                        `}
                       >
                         <div className="flex justify-between items-center text-[11px] mb-1">
                           <span
