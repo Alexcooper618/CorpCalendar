@@ -237,23 +237,47 @@ export const Calendar: React.FC = () => {
                     const isWeekend = day.getDay() === 0 || day.getDay() === 6;
                     const isProductionDayOff = productionDayOffs.has(key);
 
+                    const dayCellClasses = [
+                      "min-h-[80px]",
+                      "p-1",
+                      "cursor-pointer",
+                      "transition",
+                      "relative",
+                      "border",
+                      "bg-white",
+                      "border-slate-100",
+                    ];
+
+                    if (isWeekend) {
+                      dayCellClasses.push("bg-slate-50", "border-slate-200");
+                    }
+
+                    if (isProductionDayOff) {
+                      dayCellClasses.push("bg-amber-50", "border-amber-200");
+                    }
+
+                    const dayNumberClasses = ["px-1", "rounded", "text-slate-700"];
+
+                    if (isWeekend && !isProductionDayOff && !isToday) {
+                      dayNumberClasses.push("text-slate-500", "font-medium");
+                    }
+
+                    if (isProductionDayOff && !isToday) {
+                      dayNumberClasses.push("bg-amber-100", "text-amber-800", "font-semibold");
+                    }
+
+                    if (isToday) {
+                      dayNumberClasses.push("bg-blue-600", "text-white");
+                    }
+
                     return (
                       <div
                         key={key}
                         onClick={() => handleDayCellClick(day, dayEvents)}
-                        className={`bg-white min-h-[80px] p-1 cursor-pointer transition relative
-                          ${isWeekend ? "bg-slate-50" : ""}
-                          ${isProductionDayOff ? "bg-amber-50" : ""}
-                        `}
+                        className={dayCellClasses.join(" ")}
                       >
                         <div className="flex justify-between items-center text-[11px] mb-1">
-                          <span
-                            className={`px-1 rounded ${
-                              isToday
-                                ? "bg-blue-600 text-white"
-                                : "text-slate-700"
-                            }`}
-                          >
+                          <span className={dayNumberClasses.join(" ")}>
                             {day.getDate()}
                           </span>
                         </div>
