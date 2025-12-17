@@ -207,11 +207,11 @@ export const Calendar: React.FC = () => {
                   </h3>
                   <div className="flex items-center gap-3 text-[10px] text-slate-500">
                     <div className="flex items-center gap-1">
-                      <span className="px-1 rounded bg-slate-50 border border-slate-200" />
+                      <span className="px-1 rounded bg-slate-100 border border-slate-300" />
                       <span>Выходные</span>
                     </div>
                     <div className="flex items-center gap-1">
-                      <span className="px-1 rounded bg-amber-50 border border-amber-200" />
+                      <span className="px-1 rounded bg-amber-100 border border-amber-300" />
                       <span>Праздники / переносы</span>
                     </div>
                   </div>
