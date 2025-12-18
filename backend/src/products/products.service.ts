@@ -324,6 +324,79 @@ export class ProductsService implements OnModuleInit {
     }
   }
 
+  private buildProductFromInput(
+    input: Partial<CreateProductDto> & { id?: string },
+    existing?: Product,
+    nowIso = new Date().toISOString()
+  ): Product {
+    const createdAt = this.normalizeDateValue(
+      input.createdAt ?? existing?.createdAt,
+      existing?.createdAt ?? nowIso
+    );
+    const updatedAt = this.normalizeDateValue(input.updatedAt ?? nowIso, nowIso);
+
+    const id = input.id?.trim() || existing?.id || randomUUID();
+    const cluster = this.normalizeString(
+      input.cluster ?? existing?.cluster,
+      existing?.cluster ?? 'Без кластера'
+    );
+    const name = this.normalizeString(
+      input.name ?? existing?.name,
+      existing?.name ?? 'Без названия'
+    );
+    const owner = this.normalizeOptional(input.owner ?? input.po, existing?.owner);
+    const po = this.normalizeString(
+      input.po ?? input.owner ?? existing?.po,
+      existing?.po ?? 'Не указан'
+    );
+    const businessCustomers = this.normalizeString(
+      input.businessCustomers ?? input.owner ?? existing?.businessCustomers,
+      existing?.businessCustomers ?? 'Не указано'
+    );
+
+    return {
+      id,
+      year: input.year ?? existing?.year ?? this.extractYear(createdAt),
+      cluster,
+      name,
+      code: this.normalizeOptional(input.code, existing?.code),
+      owner,
+      status: this.normalizeOptional(input.status, existing?.status),
+      sourceSystem: this.normalizeOptional(input.sourceSystem, existing?.sourceSystem),
+      description: this.normalizeOptional(input.description, existing?.description),
+      po,
+      businessCustomers,
+      audienceId: input.audienceId?.trim() ?? existing?.audienceId,
+      plannedCsiDate: input.plannedCsiDate ?? existing?.plannedCsiDate,
+      createdAt,
+      updatedAt,
+    };
+  }
+
+  private async upsert(dto: CreateProductDto): Promise<Product> {
+    const existing = dto.id
+      ? ((this.selectByIdStmt.get(dto.id) as DbProduct | undefined) ?? undefined)
+      : undefined;
+    const existingProduct = existing ? this.mapRowToProduct(existing) : undefined;
+    const product = this.buildProductFromInput(dto, existingProduct);
+
+    if (existingProduct) {
+      this.updateStmt.run(this.toDbProduct(product));
+    } else {
+      this.insertStmt.run(this.toDbProduct(product));
+    }
+
+    return product;
+  }
+
+  private async upsertMany(dtos: CreateProductDto[]): Promise<Product[]> {
+    const products: Product[] = [];
+    for (const dto of dtos) {
+      products.push(await this.upsert(dto));
+    }
+    return products;
+  }
+
   private mapRowToProduct(row: DbProduct): Product {
     return {
       ...row,
