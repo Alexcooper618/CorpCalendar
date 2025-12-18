@@ -64,6 +64,7 @@ export default function ProductsPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [isSyncingAudiences, setIsSyncingAudiences] = useState(false);
   const [audienceQuery, setAudienceQuery] = useState("");
   const [formState, setFormState] = useState({
     id: "",
@@ -162,6 +163,30 @@ export default function ProductsPage() {
   useEffect(() => {
     loadProducts();
   }, [loadProducts]);
+
+  const handleSyncAudiences = useCallback(async () => {
+    setError(null);
+    setMessage(null);
+    setIsSyncingAudiences(true);
+    try {
+      const response = await fetch(buildApiUrl("/api/audiences/sync"), {
+        method: "POST",
+      });
+      if (!response.ok) {
+        throw new Error("Сервис синхронизации вернул ошибку");
+      }
+      const result = await response.json();
+      setMessage(
+        `Аудитории синхронизированы: создано ${result.created}, обновлено ${result.updated}, всего ${result.total}`
+      );
+      await loadAudiences();
+    } catch (e) {
+      console.error(e);
+      setError("Не удалось выполнить синхронизацию аудиторий");
+    } finally {
+      setIsSyncingAudiences(false);
+    }
+  }, [loadAudiences]);
 
   const resetForm = () => {
     setFormState((prev) => ({
@@ -355,6 +380,28 @@ export default function ProductsPage() {
               Сбросить
             </button>
           </div>
+        </div>
+      </section>
+
+      <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">
+              Синхронизация аудиторий с 1С
+            </h2>
+            <p className="text-sm text-slate-600">
+              Забирает подразделения из сервиса сотрудников и обновляет справочник
+              аудиторий.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleSyncAudiences}
+            disabled={isSyncingAudiences}
+            className="inline-flex items-center justify-center rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:opacity-60"
+          >
+            {isSyncingAudiences ? "Синхронизация..." : "Синхронизировать"}
+          </button>
         </div>
       </section>
 
