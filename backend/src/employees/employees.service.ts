@@ -66,18 +66,31 @@ export class EmployeesService {
   }
 
   private async fetchViaNtlm(): Promise<EmployeeRecord[]> {
+    if (!this.apiUrl) {
+      throw new Error('EMPLOYEES_API_URL (или ONEC_URL) не задан в переменных окружения');
+    }
+
+    if (!this.basicUsername || !this.basicPassword) {
+      throw new Error(
+        'EMPLOYEES_API_USERNAME/EMPLOYEES_API_PASSWORD (или ONEC_USERNAME/ONEC_PASSWORD) не заданы в переменных окружения',
+      );
+    }
+
+    const user = `${this.basicUsername}:${this.basicPassword}`;
+    const apiUrl = this.apiUrl;
+    const args: string[] = [
+      '--silent',
+      '--show-error',
+      '--fail',
+      '--ntlm',
+      '--user',
+      user,
+      '-H',
+      'Accept: application/json',
+      apiUrl,
+    ];
     try {
-      const { stdout } = await execFileAsync('curl', [
-        '--silent',
-        '--show-error',
-        '--fail',
-        '--ntlm',
-        '--user',
-        `${this.basicUsername}:${this.basicPassword}`,
-        '-H',
-        'Accept: application/json',
-        this.apiUrl,
-      ]);
+      const { stdout } = await execFileAsync('curl', args);
 
       const payload = stdout.trim().length > 0 ? JSON.parse(stdout) : [];
       return this.normalizeEmployees(payload);
