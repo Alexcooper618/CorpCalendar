@@ -32,6 +32,10 @@ export class EmployeesService {
       headers.Authorization = `Basic ${encoded}`;
     } else if (this.apiToken) {
       headers.Authorization = `Bearer ${this.apiToken}`;
+    } else {
+      throw new Error(
+        'EMPLOYEES_API_USERNAME/EMPLOYEES_API_PASSWORD или EMPLOYEES_API_TOKEN не заданы в переменных окружения',
+      );
     }
 
     const init: RequestInit = { headers };

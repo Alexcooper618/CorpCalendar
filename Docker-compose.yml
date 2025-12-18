@@ -4,6 +4,7 @@ services:
     container_name: csi_calendar_backend
     restart: unless-stopped
     env_file:
+      - ./.env
       - ./backend/.env
     environment:
       SQLITE_PATH: ${SQLITE_PATH:-/app/data/calendar.db}
