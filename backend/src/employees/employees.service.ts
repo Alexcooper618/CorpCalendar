@@ -19,7 +19,9 @@ export class EmployeesService {
 
   async fetchEmployees(): Promise<EmployeeRecord[]> {
     if (!this.apiUrl) {
-      throw new Error('EMPLOYEES_API_URL is not configured');
+      throw new Error(
+        'EMPLOYEES_API_URL (или ONEC_URL) не задан в переменных окружения',
+      );
     }
 
     const headers: Record<string, string> = { Accept: 'application/json' };
