@@ -8,8 +8,9 @@
     "start": "nest start",
     "prestart:dev": "npm run clean",
     "start:dev": "nest start --watch",
-    "start:prod": "node dist/main.js",
-    "clean": "rm -rf dist tsconfig.tsbuildinfo"
+    "start:prod": "node dist/src/main.js",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo",
+    "test": "ts-node ./test/departments.test.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.0.0",
