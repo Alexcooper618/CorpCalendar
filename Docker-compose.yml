@@ -8,10 +8,6 @@ services:
     environment:
       SQLITE_PATH: ${SQLITE_PATH:-/app/data/calendar.db}
       PORT: ${PORT:-4000}
-      EMPLOYEES_API_URL: ${EMPLOYEES_API_URL:-${ONEC_URL:-http://1cserv_uu/uu_2/hs/jira/employees}}
-      EMPLOYEES_API_USERNAME: ${EMPLOYEES_API_USERNAME:-${ONEC_USERNAME:-}}
-      EMPLOYEES_API_PASSWORD: ${EMPLOYEES_API_PASSWORD:-${ONEC_PASSWORD:-}}
-      EMPLOYEES_API_TOKEN: ${EMPLOYEES_API_TOKEN:-}
     ports:
       - "4000:4000"
     volumes:
