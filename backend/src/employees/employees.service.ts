@@ -66,29 +66,18 @@ export class EmployeesService {
   }
 
   private async fetchViaNtlm(): Promise<EmployeeRecord[]> {
-    if (!this.basicUsername || !this.basicPassword) {
-      throw new Error('NTLM credentials are not configured');
-    }
-
-    if (!this.apiUrl) {
-      throw new Error('EMPLOYEES_API_URL не задан');
-    }
-
-    const credentials = `${this.basicUsername!}:${this.basicPassword!}`;
-    const args: string[] = [
-      '--silent',
-      '--show-error',
-      '--fail',
-      '--ntlm',
-      '--user',
-      credentials,
-      '-H',
-      'Accept: application/json',
-      this.apiUrl,
-    ];
-
     try {
-      const { stdout } = await execFileAsync('curl', args);
+      const { stdout } = await execFileAsync('curl', [
+        '--silent',
+        '--show-error',
+        '--fail',
+        '--ntlm',
+        '--user',
+        `${this.basicUsername}:${this.basicPassword}`,
+        '-H',
+        'Accept: application/json',
+        this.apiUrl,
+      ]);
 
       const payload = stdout.trim().length > 0 ? JSON.parse(stdout) : [];
       return this.normalizeEmployees(payload);
