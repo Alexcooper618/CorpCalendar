@@ -22,6 +22,11 @@ export class ProductsController {
     return this.productsService.createMany(dtos);
   }
 
+  @Post('import')
+  import(@Body() payload: unknown) {
+    return this.productsService.importFromInsight(payload);
+  }
+
   @Patch(':id')
   update(@Param('id') id: string, @Body() dto: UpdateProductDto) {
     return this.productsService.update(id, dto);

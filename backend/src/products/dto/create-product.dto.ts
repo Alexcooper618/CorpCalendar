@@ -1,7 +1,19 @@
 import { IsDateString, IsOptional, IsString, MinLength } from 'class-validator';
 
 export class CreateProductDto {
-  year!: number;
+  @IsOptional()
+  id?: string;
+
+  @IsOptional()
+  @IsDateString()
+  createdAt?: string;
+
+  @IsOptional()
+  @IsDateString()
+  updatedAt?: string;
+
+  @IsOptional()
+  year?: number;
 
   @IsString()
   @MinLength(1)
@@ -18,6 +30,26 @@ export class CreateProductDto {
   @IsString()
   @MinLength(1)
   businessCustomers!: string;
+
+  @IsOptional()
+  @IsString()
+  code?: string;
+
+  @IsOptional()
+  @IsString()
+  owner?: string;
+
+  @IsOptional()
+  @IsString()
+  status?: string;
+
+  @IsOptional()
+  @IsString()
+  sourceSystem?: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
 
   @IsOptional()
   @IsString()
