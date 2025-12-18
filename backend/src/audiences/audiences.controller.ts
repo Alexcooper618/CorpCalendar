@@ -17,6 +17,16 @@ export class AudiencesController {
     return this.audiencesService.create(dto);
   }
 
+  @Post('sync')
+  async sync() {
+    try {
+      return await this.audiencesService.syncFromEmployees();
+    } catch (error) {
+      this.audiencesService.logSyncError(error);
+      throw error;
+    }
+  }
+
   @Patch(':id')
   update(@Param('id') id: string, @Body() dto: UpdateAudienceDto) {
     return this.audiencesService.update(id, dto);
