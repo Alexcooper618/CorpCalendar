@@ -72,6 +72,11 @@ export class EmployeesService {
       );
     }
 
+    const apiUrl = this.apiUrl;
+    if (!apiUrl) {
+      throw new Error('EMPLOYEES_API_URL (или ONEC_URL) не задан в переменных окружения');
+    }
+
     const user = `${this.basicUsername}:${this.basicPassword}`;
     try {
       const { stdout } = await execFileAsync('curl', [
@@ -83,7 +88,7 @@ export class EmployeesService {
         user,
         '-H',
         'Accept: application/json',
-        this.apiUrl,
+        apiUrl,
       ]);
 
       const payload = stdout.trim().length > 0 ? JSON.parse(stdout) : [];
