@@ -156,7 +156,30 @@ export class ProductsService implements OnModuleInit {
   }
 
   async create(dto: CreateProductDto): Promise<Product> {
-    const product = this.buildProductFromInput(dto);
+    const nowIso = new Date().toISOString();
+    const createdAt = this.normalizeDateValue(dto.createdAt, nowIso);
+    const updatedAt = this.normalizeDateValue(dto.updatedAt, nowIso);
+
+    const product: Product = {
+      id: dto.id?.trim() || randomUUID(),
+      year: dto.year ?? this.extractYear(createdAt),
+      cluster: this.normalizeString(dto.cluster, 'Без кластера'),
+      name: dto.name.trim(),
+      code: this.normalizeOptional(dto.code),
+      owner: this.normalizeOptional(dto.owner ?? dto.po),
+      status: this.normalizeOptional(dto.status),
+      sourceSystem: this.normalizeOptional(dto.sourceSystem),
+      description: this.normalizeOptional(dto.description),
+      po: this.normalizeString(dto.po ?? dto.owner ?? 'Не указан'),
+      businessCustomers: this.normalizeString(
+        dto.businessCustomers ?? dto.owner ?? 'Не указано'
+      ),
+      audienceId: dto.audienceId?.trim(),
+      plannedCsiDate: dto.plannedCsiDate,
+      createdAt,
+      updatedAt,
+    };
+
     this.insertStmt.run(this.toDbProduct(product));
     return product;
   }
@@ -259,7 +282,7 @@ export class ProductsService implements OnModuleInit {
       return dto;
     });
 
-    return this.upsertMany(dtos);
+    return this.createMany(dtos);
   }
 
   async update(id: string, dto: UpdateProductDto): Promise<Product> {
@@ -269,10 +292,26 @@ export class ProductsService implements OnModuleInit {
     }
 
     const current = this.mapRowToProduct(existing);
-    const updated: Product = this.buildProductFromInput(
-      { ...dto, id, updatedAt: new Date().toISOString() },
-      current
-    );
+    const updated: Product = {
+      ...current,
+      ...dto,
+      year: dto.year ?? current.year,
+      cluster: this.normalizeString(dto.cluster, current.cluster),
+      name: dto.name?.trim() ?? current.name,
+      code: this.normalizeOptional(dto.code, current.code),
+      owner: this.normalizeOptional(dto.owner ?? dto.po, current.owner),
+      status: this.normalizeOptional(dto.status, current.status),
+      sourceSystem: this.normalizeOptional(dto.sourceSystem, current.sourceSystem),
+      description: this.normalizeOptional(dto.description, current.description),
+      po: this.normalizeString(dto.po ?? dto.owner, current.po),
+      businessCustomers: this.normalizeString(
+        dto.businessCustomers ?? dto.owner,
+        current.businessCustomers
+      ),
+      audienceId: dto.audienceId?.trim() ?? current.audienceId,
+      plannedCsiDate: dto.plannedCsiDate ?? current.plannedCsiDate,
+      updatedAt: new Date().toISOString(),
+    };
 
     this.updateStmt.run(this.toDbProduct(updated));
     return updated;
