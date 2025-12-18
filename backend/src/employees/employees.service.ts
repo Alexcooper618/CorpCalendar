@@ -66,6 +66,13 @@ export class EmployeesService {
   }
 
   private async fetchViaNtlm(): Promise<EmployeeRecord[]> {
+    if (!this.basicUsername || !this.basicPassword) {
+      throw new Error(
+        'EMPLOYEES_API_USERNAME/EMPLOYEES_API_PASSWORD (или ONEC_USERNAME/ONEC_PASSWORD) не заданы в переменных окружения',
+      );
+    }
+
+    const user = `${this.basicUsername}:${this.basicPassword}`;
     try {
       const { stdout } = await execFileAsync('curl', [
         '--silent',
@@ -73,7 +80,7 @@ export class EmployeesService {
         '--fail',
         '--ntlm',
         '--user',
-        `${this.basicUsername}:${this.basicPassword}`,
+        user,
         '-H',
         'Accept: application/json',
         this.apiUrl,
