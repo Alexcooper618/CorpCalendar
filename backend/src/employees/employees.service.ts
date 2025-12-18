@@ -9,8 +9,12 @@ export interface EmployeeRecord {
 
 @Injectable()
 export class EmployeesService {
-  private readonly apiUrl = process.env.EMPLOYEES_API_URL;
+  private readonly apiUrl = process.env.EMPLOYEES_API_URL ?? process.env.ONEC_URL;
   private readonly apiToken = process.env.EMPLOYEES_API_TOKEN;
+  private readonly basicUsername =
+    process.env.EMPLOYEES_API_USERNAME ?? process.env.ONEC_USERNAME;
+  private readonly basicPassword =
+    process.env.EMPLOYEES_API_PASSWORD ?? process.env.ONEC_PASSWORD;
   private readonly logger = new Logger(EmployeesService.name);
 
   async fetchEmployees(): Promise<EmployeeRecord[]> {
@@ -18,12 +22,17 @@ export class EmployeesService {
       throw new Error('EMPLOYEES_API_URL is not configured');
     }
 
-    const init: RequestInit = {
-      headers: {
-        Accept: 'application/json',
-        ...(this.apiToken ? { Authorization: `Bearer ${this.apiToken}` } : {}),
-      },
-    };
+    const headers: Record<string, string> = { Accept: 'application/json' };
+    if (this.basicUsername && this.basicPassword) {
+      const encoded = Buffer.from(
+        `${this.basicUsername}:${this.basicPassword}`,
+      ).toString('base64');
+      headers.Authorization = `Basic ${encoded}`;
+    } else if (this.apiToken) {
+      headers.Authorization = `Bearer ${this.apiToken}`;
+    }
+
+    const init: RequestInit = { headers };
 
     try {
       const response = await fetch(this.apiUrl, init);
