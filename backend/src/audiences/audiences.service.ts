@@ -116,6 +116,32 @@ export class AudiencesService implements OnModuleInit {
     total: number;
   }> {
     const employees = await this.employeesService.fetchEmployees();
+    return this.syncFromEmployeeRecords(employees);
+  }
+
+  async syncFromPayload(payload: unknown): Promise<{
+    created: number;
+    updated: number;
+    total: number;
+  }> {
+    const employees = this.employeesService.normalizeEmployeesPayload(payload);
+    return this.syncFromEmployeeRecords(employees);
+  }
+
+  private collectDepartments(employees: EmployeeRecord[]): string[] {
+    return employees
+      .map((employee) => employee.departmentPath ?? employee.department ?? '')
+      .filter(
+        (department) =>
+          typeof department === 'string' && department.trim().length > 0,
+      );
+  }
+
+  private syncFromEmployeeRecords(employees: EmployeeRecord[]): {
+    created: number;
+    updated: number;
+    total: number;
+  } {
     const rawDepartments = this.collectDepartments(employees);
     const nodes = parseDepartmentTree(rawDepartments);
 
@@ -166,15 +192,6 @@ export class AudiencesService implements OnModuleInit {
     }
 
     return { created, updated, total: nodes.length };
-  }
-
-  private collectDepartments(employees: EmployeeRecord[]): string[] {
-    return employees
-      .map((employee) => employee.departmentPath ?? employee.department ?? '')
-      .filter(
-        (department) =>
-          typeof department === 'string' && department.trim().length > 0,
-      );
   }
 
   logSyncError(error: unknown): void {

@@ -65,7 +65,9 @@ export default function ProductsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [isSyncingAudiences, setIsSyncingAudiences] = useState(false);
+  const [isImportingAudiences, setIsImportingAudiences] = useState(false);
   const [audienceQuery, setAudienceQuery] = useState("");
+  const [audienceImportPayload, setAudienceImportPayload] = useState("");
   const [formState, setFormState] = useState({
     id: "",
     name: "",
@@ -187,6 +189,52 @@ export default function ProductsPage() {
       setIsSyncingAudiences(false);
     }
   }, [loadAudiences]);
+
+  const handleAudienceFileChange = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setError(null);
+    setMessage(null);
+    try {
+      const text = await file.text();
+      setAudienceImportPayload(text);
+    } catch (e) {
+      console.error(e);
+      setError("Не удалось прочитать файл");
+    }
+  };
+
+  const handleImportAudiences = async () => {
+    if (!audienceImportPayload.trim()) {
+      setError("Добавьте JSON для импорта аудиторий");
+      return;
+    }
+    setError(null);
+    setMessage(null);
+    setIsImportingAudiences(true);
+    try {
+      const response = await fetch(buildApiUrl("/api/audiences/import"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: audienceImportPayload,
+      });
+      if (!response.ok) {
+        throw new Error("Импорт аудиторий завершился ошибкой");
+      }
+      const result = await response.json();
+      setMessage(
+        `Аудитории импортированы: создано ${result.created}, обновлено ${result.updated}, всего ${result.total}`
+      );
+      await loadAudiences();
+    } catch (e) {
+      console.error(e);
+      setError("Не удалось импортировать аудитории");
+    } finally {
+      setIsImportingAudiences(false);
+    }
+  };
 
   const resetForm = () => {
     setFormState((prev) => ({
@@ -401,6 +449,53 @@ export default function ProductsPage() {
             className="inline-flex items-center justify-center rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:opacity-60"
           >
             {isSyncingAudiences ? "Синхронизация..." : "Синхронизировать"}
+          </button>
+        </div>
+      </section>
+
+      <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">
+              Импорт аудиторий из JSON
+            </h2>
+            <p className="text-sm text-slate-600">
+              Загрузите JSON со списком сотрудников и подразделений, чтобы создать
+              дерево аудиторий вручную.
+            </p>
+          </div>
+          <label className="text-sm font-medium text-slate-700">
+            Файл JSON
+            <input
+              type="file"
+              accept="application/json,.json"
+              onChange={handleAudienceFileChange}
+              className="mt-1 block w-full text-sm text-slate-600 file:mr-4 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-slate-700 hover:file:bg-slate-200"
+            />
+          </label>
+        </div>
+        <textarea
+          value={audienceImportPayload}
+          onChange={(e) => setAudienceImportPayload(e.target.value)}
+          rows={6}
+          className="mt-3 w-full rounded-md border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+          placeholder='[{"name": "Иванов И.И.", "subdivision": "Блок\\Отдел"}]'
+        />
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={handleImportAudiences}
+            disabled={isImportingAudiences}
+            className="inline-flex items-center justify-center rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:opacity-60"
+          >
+            {isImportingAudiences ? "Импорт..." : "Импортировать аудитории"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setAudienceImportPayload("")}
+            className="text-sm font-medium text-slate-700 underline"
+          >
+            Очистить поле
           </button>
         </div>
       </section>
