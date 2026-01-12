@@ -65,6 +65,10 @@ export class EmployeesService {
     }
   }
 
+  normalizeEmployeesPayload(payload: unknown): EmployeeRecord[] {
+    return this.normalizeEmployees(payload);
+  }
+
   private async fetchViaNtlm(): Promise<EmployeeRecord[]> {
     if (!this.basicUsername || !this.basicPassword) {
       throw new Error(
@@ -162,12 +166,19 @@ export class EmployeesService {
     const departmentPath = this.pickString(source, [
       'departmentPath',
       'department',
+      'subdivision',
       'Division',
       'Organisation',
       'Organization',
     ]);
     const department =
-      this.pickString(source, ['department', 'Department', 'Division', 'Organisation']) ??
+      this.pickString(source, [
+        'department',
+        'Department',
+        'Division',
+        'Organisation',
+        'subdivision',
+      ]) ??
       departmentPath;
     const id = this.pickString(source, ['id', 'Id', 'TABNUMBER', 'TabNumber']);
 
