@@ -34,6 +34,36 @@ const resolveProductTitle = (product?: Product) =>
 const resolveProductOwner = (product?: Product) =>
   product?.productOwner ?? product?.owner ?? "";
 
+const parseAudienceIds = (
+  raw?: string[] | string | null,
+  fallback?: string | null
+): string[] | undefined => {
+  if (Array.isArray(raw)) {
+    const normalized = raw.filter((value): value is string => typeof value === "string");
+    return normalized.length ? normalized : undefined;
+  }
+  if (typeof raw === "string" && raw.trim()) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        const normalized = parsed.filter(
+          (value): value is string => typeof value === "string"
+        );
+        if (normalized.length) {
+          return normalized;
+        }
+      }
+    } catch {
+      return [raw];
+    }
+    return [raw];
+  }
+  if (fallback) {
+    return [fallback];
+  }
+  return undefined;
+};
+
 const buildAudienceLookup = (nodes: AudienceNode[]) => {
   const lookup = new Map<string, string>();
   const walk = (node: AudienceNode) => {
@@ -213,6 +243,7 @@ export const Calendar: React.FC = () => {
         ...product,
         title: product.title ?? product.name ?? "",
         productOwner: product.productOwner ?? product.owner,
+        audienceIds: parseAudienceIds(product.audienceIds, product.audienceId) ?? [],
       }));
       setProducts(normalized);
     } catch (error) {
@@ -274,6 +305,14 @@ export const Calendar: React.FC = () => {
       return event.title;
     },
     [products]
+  );
+
+  const resolveDeptLabel = useCallback(
+    (dept?: string) => {
+      if (!dept) return "";
+      return audienceLookup.get(dept) ?? dept;
+    },
+    [audienceLookup]
   );
 
   const handleDayCellClick = (day: Date, dayEvents: Event[]) => {
@@ -424,7 +463,7 @@ export const Calendar: React.FC = () => {
                                   opacity: isStartDay ? 1 : 0.5,
                                 }}
                                 title={`${displayTitle} • ${typeLabel}${
-                                  ev.dept ? ` • ${ev.dept}` : ""
+                                  ev.dept ? ` • ${resolveDeptLabel(ev.dept)}` : ""
                                 }`}
                                 aria-hidden
                               >
@@ -448,6 +487,7 @@ export const Calendar: React.FC = () => {
           date={dayDetailsDate}
           events={getEventsForDay(dayDetailsDate)}
           products={products}
+          audienceLookup={audienceLookup}
           onClose={() => setDayDetailsDate(null)}
           onAdd={() =>
             setRangeForModal({
@@ -490,6 +530,7 @@ const DayDetailsModal = ({
   date,
   events,
   products,
+  audienceLookup,
   onClose,
   onAdd,
   onEdit,
@@ -498,6 +539,7 @@ const DayDetailsModal = ({
   date: Date;
   events: Event[];
   products: Product[];
+  audienceLookup: Map<string, string>;
   onClose: () => void;
   onAdd: () => void;
   onEdit: (event: Event) => void;
@@ -541,6 +583,14 @@ const DayDetailsModal = ({
       setIsDeletingId(null);
     }
   };
+
+  const resolveDeptLabel = useCallback(
+    (dept?: string) => {
+      if (!dept) return "";
+      return audienceLookup.get(dept) ?? dept;
+    },
+    [audienceLookup]
+  );
 
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
@@ -648,7 +698,7 @@ const DayDetailsModal = ({
                     <div className="flex flex-wrap gap-2">
                       {event.dept && (
                         <span className="px-2 py-0.5 rounded-full bg-white border text-slate-700">
-                          {event.dept}
+                          {resolveDeptLabel(event.dept)}
                         </span>
                       )}
                       {event.owner && (
