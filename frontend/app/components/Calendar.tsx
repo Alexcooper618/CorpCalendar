@@ -34,6 +34,36 @@ const resolveProductTitle = (product?: Product) =>
 const resolveProductOwner = (product?: Product) =>
   product?.productOwner ?? product?.owner ?? "";
 
+const parseAudienceIds = (
+  raw?: string[] | string | null,
+  fallback?: string | null
+): string[] | undefined => {
+  if (Array.isArray(raw)) {
+    const normalized = raw.filter((value): value is string => typeof value === "string");
+    return normalized.length ? normalized : undefined;
+  }
+  if (typeof raw === "string" && raw.trim()) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        const normalized = parsed.filter(
+          (value): value is string => typeof value === "string"
+        );
+        if (normalized.length) {
+          return normalized;
+        }
+      }
+    } catch {
+      return [raw];
+    }
+    return [raw];
+  }
+  if (fallback) {
+    return [fallback];
+  }
+  return undefined;
+};
+
 const buildAudienceLookup = (nodes: AudienceNode[]) => {
   const lookup = new Map<string, string>();
   const walk = (node: AudienceNode) => {
@@ -213,6 +243,7 @@ export const Calendar: React.FC = () => {
         ...product,
         title: product.title ?? product.name ?? "",
         productOwner: product.productOwner ?? product.owner,
+        audienceIds: parseAudienceIds(product.audienceIds, product.audienceId) ?? [],
       }));
       setProducts(normalized);
     } catch (error) {
