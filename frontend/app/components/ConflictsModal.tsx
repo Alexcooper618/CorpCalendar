@@ -357,7 +357,7 @@ export const ConflictsModal = ({
               </div>
             )}
           </div>
-          {!currentAudienceSet.size && (
+          {!currentAudienceKeys.length && (
             <p className="mt-2 text-xs text-slate-500">
               Для проверки выберите аудиторию: укажите подразделение вручную или
               выберите аудиторию из справочника.
@@ -371,7 +371,9 @@ export const ConflictsModal = ({
         </div>
 
         <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-1">
-          {currentAudienceSet.size > 0 && currentRange && audienceConflicts.length === 0 && (
+          {currentAudienceKeys.length > 0 &&
+            currentRange &&
+            audienceConflicts.length === 0 && (
             <div className="text-xs text-emerald-700">
               Пересечений на выбранный период не найдено.
             </div>
