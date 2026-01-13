@@ -27,6 +27,16 @@ export class AudiencesController {
     }
   }
 
+  @Post('import')
+  async import(@Body() payload: unknown) {
+    try {
+      return await this.audiencesService.syncFromPayload(payload);
+    } catch (error) {
+      this.audiencesService.logSyncError(error);
+      throw error;
+    }
+  }
+
   @Patch(':id')
   update(@Param('id') id: string, @Body() dto: UpdateAudienceDto) {
     return this.audiencesService.update(id, dto);
