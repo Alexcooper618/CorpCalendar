@@ -10,7 +10,6 @@ import {
 } from "./Calendar";
 import {
   buildAudienceDescendants,
-  buildAudienceSetFromKeys,
   getAudienceConflicts,
 } from "./utils/conflicts";
 
@@ -91,11 +90,6 @@ export const ConflictsModal = ({
     return deptValue ? [deptValue] : [];
   }, [audienceId, deptInput]);
 
-  const currentAudienceSet = useMemo(
-    () => buildAudienceSetFromKeys(currentAudienceKeys, audienceDescendants),
-    [audienceDescendants, currentAudienceKeys]
-  );
-
   const selectedAudienceLabel = audienceId
     ? audienceLookup.get(audienceId) || audienceId
     : "";
@@ -116,7 +110,7 @@ export const ConflictsModal = ({
 
   const audienceConflicts = useMemo(() => {
     if (!currentRange) return [];
-    if (!currentAudienceSet.size) return [];
+    if (!currentAudienceKeys.length) return [];
 
     return getAudienceConflicts({
       events: filteredEvents,
@@ -124,12 +118,12 @@ export const ConflictsModal = ({
       audienceLookup,
       audienceDescendants,
       range: currentRange,
-      targetAudienceSet: currentAudienceSet,
+      targetAudienceKeys: currentAudienceKeys,
     });
   }, [
     audienceDescendants,
     audienceLookup,
-    currentAudienceSet,
+    currentAudienceKeys,
     currentRange,
     filteredEvents,
     products,

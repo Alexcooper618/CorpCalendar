@@ -12,7 +12,6 @@ import {
 } from "./Calendar";
 import {
   buildAudienceDescendants,
-  buildAudienceSetFromKeys,
   getAudienceConflicts,
 } from "./utils/conflicts";
 
@@ -345,14 +344,9 @@ export const EventModal = ({
     return deptValue ? [deptValue] : [];
   }, [audienceId, deptInput, selectedProduct, type]);
 
-  const currentAudienceSet = useMemo(
-    () => buildAudienceSetFromKeys(currentAudienceKeys, audienceDescendants),
-    [audienceDescendants, currentAudienceKeys]
-  );
-
   const audienceConflicts = useMemo(() => {
     if (!currentRange) return [];
-    if (!currentAudienceSet.size) return [];
+    if (!currentAudienceKeys.length) return [];
 
     return getAudienceConflicts({
       events,
@@ -360,7 +354,7 @@ export const EventModal = ({
       audienceLookup,
       audienceDescendants,
       range: currentRange,
-      targetAudienceSet: currentAudienceSet,
+      targetAudienceKeys: currentAudienceKeys,
       excludeEventId: isEditing ? range.event?.id : undefined,
     }).map((group) => ({
       ...group,
@@ -369,7 +363,7 @@ export const EventModal = ({
   }, [
     audienceDescendants,
     audienceLookup,
-    currentAudienceSet,
+    currentAudienceKeys,
     currentRange,
     events,
     isEditing,
@@ -377,7 +371,7 @@ export const EventModal = ({
     range.event?.id,
   ]);
 
-  const hasAudienceForCheck = currentAudienceSet.size > 0;
+  const hasAudienceForCheck = currentAudienceKeys.length > 0;
 
   const formatDate = (value: string) =>
     new Date(value).toLocaleDateString("ru-RU", {
