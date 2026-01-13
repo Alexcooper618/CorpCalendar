@@ -64,26 +64,11 @@ const parseEventDate = (value: string) => {
 const rangesOverlap = (startA: Date, endA: Date, startB: Date, endB: Date) =>
   startA <= endB && endA >= startB;
 
-const audiencesOverlap = (
-  audienceKey: string,
-  targetKeys: string[],
-  audienceDescendants: AudienceDescendants
-) => {
+const audiencesOverlap = (audienceKey: string, targetKeys: string[]) => {
   if (!targetKeys.length) return false;
   if (audienceKey === ALL_EMPLOYEES_ID) return true;
-
-  const eventDescendants = audienceDescendants.map.get(audienceKey);
-
-  for (const targetKey of targetKeys) {
-    if (targetKey === ALL_EMPLOYEES_ID) return true;
-    if (targetKey === audienceKey) return true;
-
-    const targetDescendants = audienceDescendants.map.get(targetKey);
-    if (targetDescendants?.has(audienceKey)) return true;
-    if (eventDescendants?.has(targetKey)) return true;
-  }
-
-  return false;
+  if (targetKeys.includes(ALL_EMPLOYEES_ID)) return true;
+  return targetKeys.includes(audienceKey);
 };
 
 const resolveAudienceLabel = (audienceKey: string, audienceLookup: Map<string, string>) => {
@@ -116,7 +101,6 @@ type GetAudienceConflictsParams = {
   events: Event[];
   products: Product[];
   audienceLookup: Map<string, string>;
-  audienceDescendants: AudienceDescendants;
   range: { start: Date; end: Date };
   targetAudienceKeys: string[];
   excludeEventId?: string;
@@ -126,7 +110,6 @@ export const getAudienceConflicts = ({
   events,
   products,
   audienceLookup,
-  audienceDescendants,
   range,
   targetAudienceKeys,
   excludeEventId,
@@ -154,7 +137,7 @@ export const getAudienceConflicts = ({
     if (!eventAudiences.length) return;
 
     eventAudiences.forEach((audienceKey) => {
-      if (!audiencesOverlap(audienceKey, targetAudienceKeys, audienceDescendants)) {
+      if (!audiencesOverlap(audienceKey, targetAudienceKeys)) {
         return;
       }
       const label = resolveAudienceLabel(audienceKey, audienceLookup);
