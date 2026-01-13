@@ -14,6 +14,10 @@ export interface Audience {
   path: string;
 }
 
+export interface AudienceTreeNode extends Audience {
+  children: AudienceTreeNode[];
+}
+
 interface DbAudience {
   id: string;
   parentId: string | null;
@@ -67,9 +71,9 @@ export class AudiencesService implements OnModuleInit {
     this.deleteStmt = this.db.prepare(`DELETE FROM audiences WHERE id = ?`);
   }
 
-  async findAll(): Promise<Audience[]> {
+  async findAll(): Promise<AudienceTreeNode[]> {
     const rows = this.selectAllStmt.all() as DbAudience[];
-    return rows.map((row) => this.mapRowToAudience(row));
+    return this.buildTree(rows);
   }
 
   async create(dto: CreateAudienceDto): Promise<Audience> {
@@ -206,6 +210,30 @@ export class AudiencesService implements OnModuleInit {
       ...row,
       parentId: row.parentId ?? undefined,
     };
+  }
+
+  private buildTree(rows: DbAudience[]): AudienceTreeNode[] {
+    const nodes = new Map<string, AudienceTreeNode>();
+
+    rows.forEach((row) => {
+      nodes.set(row.id, { ...this.mapRowToAudience(row), children: [] });
+    });
+
+    const roots: AudienceTreeNode[] = [];
+
+    rows.forEach((row) => {
+      const node = nodes.get(row.id);
+      if (!node) {
+        return;
+      }
+      if (row.parentId && nodes.has(row.parentId)) {
+        nodes.get(row.parentId)?.children.push(node);
+      } else {
+        roots.push(node);
+      }
+    });
+
+    return roots;
   }
 
   private toDbAudience(audience: Audience): DbAudience {
