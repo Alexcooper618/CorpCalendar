@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { buildApiUrl } from "../lib/api";
 import { AudiencePickerModal } from "./AudiencePickerModal";
 import {
@@ -332,6 +332,37 @@ export const EventModal = ({
     return deptValue ? [deptValue] : [];
   };
 
+  const audienceDescendants = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    const allIds = new Set<string>();
+    const walk = (node: AudienceNode) => {
+      const ids = new Set<string>([node.id]);
+      allIds.add(node.id);
+      node.children?.forEach((child) => {
+        const childIds = walk(child);
+        childIds.forEach((id) => ids.add(id));
+      });
+      map.set(node.id, ids);
+      return ids;
+    };
+    audienceTree.forEach(walk);
+    return { map, allIds };
+  }, [audienceTree]);
+
+  const expandAudienceKey = useCallback(
+    (key: string) => {
+      if (key === "all-employees") {
+        return new Set(audienceDescendants.allIds);
+      }
+      const fromTree = audienceDescendants.map.get(key);
+      if (fromTree) {
+        return new Set(fromTree);
+      }
+      return new Set([key]);
+    },
+    [audienceDescendants]
+  );
+
   const selectedAudienceLabel = audienceId
     ? resolveAudienceLabel(audienceId)
     : "";
@@ -350,12 +381,27 @@ export const EventModal = ({
     return deptValue ? [deptValue] : [];
   }, [audienceId, deptInput, selectedProduct, type]);
 
+  const currentAudienceSet = useMemo(() => {
+    const expanded = new Set<string>();
+    currentAudienceKeys.forEach((key) => {
+      expandAudienceKey(key).forEach((id) => expanded.add(id));
+    });
+    return expanded;
+  }, [currentAudienceKeys, expandAudienceKey]);
+
   const rangesOverlap = (startA: Date, endA: Date, startB: Date, endB: Date) =>
     startA <= endB && endA >= startB;
 
+  const hasIntersection = (left: Set<string>, right: Set<string>) => {
+    for (const id of left) {
+      if (right.has(id)) return true;
+    }
+    return false;
+  };
+
   const audienceConflicts = useMemo(() => {
     if (!currentRange) return [];
-    if (!currentAudienceKeys.length) return [];
+    if (!currentAudienceSet.size) return [];
 
     const conflicts = new Map<
       string,
@@ -383,11 +429,11 @@ export const EventModal = ({
       const eventAudiences = resolveEventAudiences(event, eventProduct);
       if (!eventAudiences.length) return;
 
-      const sharedAudiences = eventAudiences.filter((key) =>
-        currentAudienceKeys.includes(key)
-      );
-
-      sharedAudiences.forEach((audienceKey) => {
+      eventAudiences.forEach((audienceKey) => {
+        const expandedEventAudience = expandAudienceKey(audienceKey);
+        if (!hasIntersection(expandedEventAudience, currentAudienceSet)) {
+          return;
+        }
         const label = resolveAudienceLabel(audienceKey);
         const existing = conflicts.get(audienceKey);
         if (existing) {
@@ -403,15 +449,16 @@ export const EventModal = ({
       ...value,
     }));
   }, [
-    currentAudienceKeys,
+    currentAudienceSet,
     currentRange,
     events,
     isEditing,
     products,
     range.event?.id,
+    expandAudienceKey,
   ]);
 
-  const hasAudienceForCheck = currentAudienceKeys.length > 0;
+  const hasAudienceForCheck = currentAudienceSet.size > 0;
 
   const formatDate = (value: string) =>
     new Date(value).toLocaleDateString("ru-RU", {
