@@ -215,18 +215,10 @@ export default function ProductsPage() {
     setMessage(null);
     setIsImportingAudiences(true);
     try {
-      let parsedPayload: unknown;
-      try {
-        parsedPayload = JSON.parse(audienceImportPayload);
-      } catch (parseError) {
-        setError("Некорректный JSON для импорта аудиторий");
-        console.error(parseError);
-        return;
-      }
       const response = await fetch(buildApiUrl("/api/audiences/import"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(parsedPayload),
+        body: audienceImportPayload,
       });
       if (!response.ok) {
         throw new Error("Импорт аудиторий завершился ошибкой");
