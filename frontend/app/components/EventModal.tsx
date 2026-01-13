@@ -14,6 +14,18 @@ const PALETTE = [
   "#0ea5e9",
 ];
 
+const ALL_EMPLOYEES_ID = "all-employees";
+const ALL_EMPLOYEES_LABEL = "Все сотрудники";
+
+type AudienceNode = {
+  id: string;
+  name: string;
+  path: string;
+  children?: AudienceNode[];
+};
+
+type FlatAudience = AudienceNode & { depth: number; pathLabel: string };
+
 function toInputDate(date: Date) {
   return [
     date.getFullYear(),
@@ -60,6 +72,12 @@ export const EventModal = ({
       ? toInputDate(new Date(range.event.plannedCsiDate))
       : ""
   );
+  const [audienceQuery, setAudienceQuery] = useState("");
+  const [expandedAudienceIds, setExpandedAudienceIds] = useState<Set<string>>(
+    new Set()
+  );
+  const [selectedAudienceIds, setSelectedAudienceIds] = useState<string[]>([]);
+  const [legacyDept, setLegacyDept] = useState("");
   const [color, setColor] = useState(range.event?.color || PALETTE[0]);
   const [comment, setComment] = useState(range.event?.comment || "");
   const [error, setError] = useState("");
@@ -117,6 +135,13 @@ export const EventModal = ({
     );
     setColor(range.event?.color || PALETTE[0]);
     setComment(range.event?.comment || "");
+    const parsedAudiences = parseAudienceIds(range.event?.dept);
+    setSelectedAudienceIds(parsedAudiences);
+    const legacyDeptValue =
+      parsedAudiences.length === 0 && range.event?.dept
+        ? range.event.dept
+        : "";
+    setLegacyDept(legacyDeptValue);
     setError("");
   };
 
@@ -320,7 +345,6 @@ export const EventModal = ({
     () =>
       Array.from(audienceLookup.entries())
         .map(([id, label]) => ({ id, label }))
-        .filter((option) => Boolean(option.label))
         .sort((a, b) => a.label.localeCompare(b.label, "ru-RU")),
     [audienceLookup]
   );
