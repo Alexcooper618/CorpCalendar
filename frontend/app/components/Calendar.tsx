@@ -276,6 +276,14 @@ export const Calendar: React.FC = () => {
     [products]
   );
 
+  const resolveDeptLabel = useCallback(
+    (dept?: string) => {
+      if (!dept) return "";
+      return audienceLookup.get(dept) ?? dept;
+    },
+    [audienceLookup]
+  );
+
   const handleDayCellClick = (day: Date, dayEvents: Event[]) => {
     if (dayEvents.length > 0) {
       setDayDetailsDate(day);
@@ -424,7 +432,7 @@ export const Calendar: React.FC = () => {
                                   opacity: isStartDay ? 1 : 0.5,
                                 }}
                                 title={`${displayTitle} • ${typeLabel}${
-                                  ev.dept ? ` • ${ev.dept}` : ""
+                                  ev.dept ? ` • ${resolveDeptLabel(ev.dept)}` : ""
                                 }`}
                                 aria-hidden
                               >
@@ -448,6 +456,7 @@ export const Calendar: React.FC = () => {
           date={dayDetailsDate}
           events={getEventsForDay(dayDetailsDate)}
           products={products}
+          audienceLookup={audienceLookup}
           onClose={() => setDayDetailsDate(null)}
           onAdd={() =>
             setRangeForModal({
@@ -490,6 +499,7 @@ const DayDetailsModal = ({
   date,
   events,
   products,
+  audienceLookup,
   onClose,
   onAdd,
   onEdit,
@@ -498,6 +508,7 @@ const DayDetailsModal = ({
   date: Date;
   events: Event[];
   products: Product[];
+  audienceLookup: Map<string, string>;
   onClose: () => void;
   onAdd: () => void;
   onEdit: (event: Event) => void;
@@ -541,6 +552,14 @@ const DayDetailsModal = ({
       setIsDeletingId(null);
     }
   };
+
+  const resolveDeptLabel = useCallback(
+    (dept?: string) => {
+      if (!dept) return "";
+      return audienceLookup.get(dept) ?? dept;
+    },
+    [audienceLookup]
+  );
 
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
@@ -648,7 +667,7 @@ const DayDetailsModal = ({
                     <div className="flex flex-wrap gap-2">
                       {event.dept && (
                         <span className="px-2 py-0.5 rounded-full bg-white border text-slate-700">
-                          {event.dept}
+                          {resolveDeptLabel(event.dept)}
                         </span>
                       )}
                       {event.owner && (
