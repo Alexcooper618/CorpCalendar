@@ -90,9 +90,6 @@ export default function ProductsPage() {
   const [isImportingAudiences, setIsImportingAudiences] = useState(false);
   const [audienceQuery, setAudienceQuery] = useState("");
   const [audienceImportPayload, setAudienceImportPayload] = useState("");
-  const [expandedAudienceIds, setExpandedAudienceIds] = useState<Set<string>>(
-    new Set()
-  );
   const [formState, setFormState] = useState({
     id: "",
     name: "",
@@ -313,18 +310,10 @@ export default function ProductsPage() {
     setMessage(null);
     setIsImportingAudiences(true);
     try {
-      let parsedPayload: unknown;
-      try {
-        parsedPayload = JSON.parse(audienceImportPayload);
-      } catch (parseError) {
-        setError("Некорректный JSON для импорта аудиторий");
-        console.error(parseError);
-        return;
-      }
       const response = await fetch(buildApiUrl("/api/audiences/import"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(parsedPayload),
+        body: audienceImportPayload,
       });
       if (!response.ok) {
         throw new Error("Импорт аудиторий завершился ошибкой");
@@ -341,56 +330,6 @@ export default function ProductsPage() {
       setIsImportingAudiences(false);
     }
   };
-
-  const toggleAudienceExpanded = useCallback((id: string) => {
-    setExpandedAudienceIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  }, []);
-
-  const getDescendantIds = useCallback((node: AudienceNode): string[] => {
-    const ids: string[] = [node.id];
-    node.children?.forEach((child) => {
-      ids.push(...getDescendantIds(child));
-    });
-    return ids;
-  }, []);
-
-  const getAncestorIds = useCallback(
-    (id: string): string[] => {
-      const ancestors: string[] = [];
-      let current = audienceMaps.parentMap.get(id);
-      while (current) {
-        ancestors.push(current);
-        current = audienceMaps.parentMap.get(current);
-      }
-      return ancestors;
-    },
-    [audienceMaps]
-  );
-
-  const toggleAudienceSelection = useCallback(
-    (node: AudienceNode) => {
-      setFormState((prev) => {
-        const next = new Set(prev.audienceIds);
-        const descendants = getDescendantIds(node);
-        if (next.has(node.id)) {
-          descendants.forEach((id) => next.delete(id));
-          getAncestorIds(node.id).forEach((id) => next.delete(id));
-        } else {
-          descendants.forEach((id) => next.add(id));
-        }
-        return { ...prev, audienceIds: Array.from(next) };
-      });
-    },
-    [getAncestorIds, getDescendantIds]
-  );
 
   const resetForm = () => {
     setFormState((prev) => ({
