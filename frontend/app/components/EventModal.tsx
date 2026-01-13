@@ -45,7 +45,8 @@ export const EventModal = ({
 }) => {
   const [title, setTitle] = useState(range.event?.title || "");
   const [type, setType] = useState<EventType>(range.event?.type || "custom");
-  const [dept, setDept] = useState(range.event?.dept || "");
+  const [deptInput, setDeptInput] = useState(range.event?.dept || "");
+  const [audienceId, setAudienceId] = useState("");
   const [owner, setOwner] = useState(range.event?.owner || "");
   const [startDate, setStartDate] = useState(
     toInputDate(new Date(range.event?.startDate || range.start))
@@ -103,7 +104,8 @@ export const EventModal = ({
   const updateFromRange = () => {
     setTitle(range.event?.title || "");
     setType(range.event?.type || "custom");
-    setDept(range.event?.dept || "");
+    setDeptInput(range.event?.dept || "");
+    setAudienceId("");
     setOwner(range.event?.owner || "");
     setStartDate(toInputDate(new Date(range.event?.startDate || range.start)));
     setEndDate(toInputDate(new Date(range.event?.endDate || range.end || range.start)));
@@ -135,6 +137,15 @@ export const EventModal = ({
   useEffect(() => {
     updateFromRange();
   }, [range]);
+
+  useEffect(() => {
+    if (type !== "custom") return;
+    if (!deptInput || audienceId) return;
+    if (audienceLookup.has(deptInput)) {
+      setAudienceId(deptInput);
+      setDeptInput("");
+    }
+  }, [audienceId, audienceLookup, deptInput, type]);
 
   useEffect(() => {
     if (type === "itProduct" && !productId && products.length > 0) {
@@ -191,6 +202,9 @@ export const EventModal = ({
         ? new Date(plannedCsiDate).toISOString()
         : undefined;
 
+    const deptValue =
+      type === "custom" ? audienceId || deptInput.trim() : deptInput.trim();
+
     setError("");
     setIsSaving(true);
 
@@ -207,7 +221,7 @@ export const EventModal = ({
             plannedCsiDate: plannedCsiDateIso,
             startDate: start.toISOString(),
             endDate: end.toISOString(),
-            dept: dept || undefined,
+            dept: deptValue || undefined,
             owner: owner || undefined,
             color,
             comment: comment || undefined,
@@ -298,6 +312,18 @@ export const EventModal = ({
     return deptValue ? [deptValue] : [];
   };
 
+  const selectedAudienceLabel = audienceId
+    ? resolveAudienceLabel(audienceId)
+    : "";
+
+  const audienceOptions = useMemo(
+    () =>
+      Array.from(audienceLookup.entries())
+        .map(([id, label]) => ({ id, label }))
+        .sort((a, b) => a.label.localeCompare(b.label, "ru-RU")),
+    [audienceLookup]
+  );
+
   const currentAudienceKeys = useMemo(() => {
     if (type === "itProduct") {
       if (selectedProduct?.audienceIds?.length) {
@@ -308,9 +334,9 @@ export const EventModal = ({
       }
       return [];
     }
-    const deptValue = dept.trim();
+    const deptValue = (audienceId || deptInput).trim();
     return deptValue ? [deptValue] : [];
-  }, [dept, selectedProduct, type]);
+  }, [audienceId, deptInput, selectedProduct, type]);
 
   const rangesOverlap = (startA: Date, endA: Date, startB: Date, endB: Date) =>
     startA <= endB && endA >= startB;
@@ -492,15 +518,57 @@ export const EventModal = ({
             />
           </label>
 
-          <label className="space-y-1 text-sm">
-            <span className="text-slate-700">Подразделение</span>
-            <input
-              value={dept}
-              onChange={(e) => setDept(e.target.value)}
-              placeholder="Например: HR, Аналитика, Регион"
-              className="w-full border rounded-md px-3 py-2 text-sm"
-            />
-          </label>
+          {type === "custom" ? (
+            <div className="space-y-2 text-sm">
+              <label className="space-y-1 block">
+                <span className="text-slate-700">Аудитория из справочника</span>
+                <select
+                  value={audienceId}
+                  onChange={(e) => {
+                    setAudienceId(e.target.value);
+                    setDeptInput("");
+                  }}
+                  className="w-full border rounded-md px-3 py-2 text-sm"
+                >
+                  <option value="">Выберите аудиторию</option>
+                  {audienceOptions.map((audience) => (
+                    <option key={audience.id} value={audience.id}>
+                      {audience.label}
+                    </option>
+                  ))}
+                </select>
+                {audienceId && (
+                  <p className="text-xs text-slate-500">
+                    Выбрано: {selectedAudienceLabel}
+                  </p>
+                )}
+              </label>
+              <label className="space-y-1 block">
+                <span className="text-slate-700">Подразделение вручную</span>
+                <input
+                  value={deptInput}
+                  onChange={(e) => {
+                    setDeptInput(e.target.value);
+                    if (e.target.value) {
+                      setAudienceId("");
+                    }
+                  }}
+                  placeholder="Например: HR, Аналитика, Регион"
+                  className="w-full border rounded-md px-3 py-2 text-sm"
+                />
+              </label>
+            </div>
+          ) : (
+            <label className="space-y-1 text-sm">
+              <span className="text-slate-700">Подразделение</span>
+              <input
+                value={deptInput}
+                onChange={(e) => setDeptInput(e.target.value)}
+                placeholder="Например: HR, Аналитика, Регион"
+                className="w-full border rounded-md px-3 py-2 text-sm"
+              />
+            </label>
+          )}
 
           <div className="space-y-1 text-sm">
             <span className="text-slate-700">Период опроса</span>
