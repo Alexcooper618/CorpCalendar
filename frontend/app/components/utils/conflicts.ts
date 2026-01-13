@@ -39,10 +39,6 @@ export const expandAudienceKey = (
   if (key === ALL_EMPLOYEES_ID) {
     return new Set(audienceDescendants.allIds);
   }
-  const fromTree = audienceDescendants.map.get(key);
-  if (fromTree) {
-    return new Set(fromTree);
-  }
   return new Set([key]);
 };
 
@@ -68,10 +64,25 @@ const parseEventDate = (value: string) => {
 const rangesOverlap = (startA: Date, endA: Date, startB: Date, endB: Date) =>
   startA <= endB && endA >= startB;
 
-const hasIntersection = (left: Set<string>, right: Set<string>) => {
-  for (const id of left) {
-    if (right.has(id)) return true;
+const audiencesOverlap = (
+  audienceKey: string,
+  targetKeys: string[],
+  audienceDescendants: AudienceDescendants
+) => {
+  if (!targetKeys.length) return false;
+  if (audienceKey === ALL_EMPLOYEES_ID) return true;
+
+  const eventDescendants = audienceDescendants.map.get(audienceKey);
+
+  for (const targetKey of targetKeys) {
+    if (targetKey === ALL_EMPLOYEES_ID) return true;
+    if (targetKey === audienceKey) return true;
+
+    const targetDescendants = audienceDescendants.map.get(targetKey);
+    if (targetDescendants?.has(audienceKey)) return true;
+    if (eventDescendants?.has(targetKey)) return true;
   }
+
   return false;
 };
 
@@ -107,7 +118,7 @@ type GetAudienceConflictsParams = {
   audienceLookup: Map<string, string>;
   audienceDescendants: AudienceDescendants;
   range: { start: Date; end: Date };
-  targetAudienceSet: Set<string>;
+  targetAudienceKeys: string[];
   excludeEventId?: string;
 };
 
@@ -117,10 +128,10 @@ export const getAudienceConflicts = ({
   audienceLookup,
   audienceDescendants,
   range,
-  targetAudienceSet,
+  targetAudienceKeys,
   excludeEventId,
 }: GetAudienceConflictsParams): AudienceConflictGroup[] => {
-  if (!targetAudienceSet.size) return [];
+  if (!targetAudienceKeys.length) return [];
 
   const conflicts = new Map<string, { label: string; events: Event[] }>();
 
@@ -143,8 +154,7 @@ export const getAudienceConflicts = ({
     if (!eventAudiences.length) return;
 
     eventAudiences.forEach((audienceKey) => {
-      const expandedEventAudience = expandAudienceKey(audienceKey, audienceDescendants);
-      if (!hasIntersection(expandedEventAudience, targetAudienceSet)) {
+      if (!audiencesOverlap(audienceKey, targetAudienceKeys, audienceDescendants)) {
         return;
       }
       const label = resolveAudienceLabel(audienceKey, audienceLookup);
