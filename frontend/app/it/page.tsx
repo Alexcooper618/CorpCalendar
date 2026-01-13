@@ -90,6 +90,9 @@ export default function ProductsPage() {
   const [isImportingAudiences, setIsImportingAudiences] = useState(false);
   const [audienceQuery, setAudienceQuery] = useState("");
   const [audienceImportPayload, setAudienceImportPayload] = useState("");
+  const [expandedAudienceIds, setExpandedAudienceIds] = useState(
+    () => new Set<string>()
+  );
   const [formState, setFormState] = useState({
     id: "",
     name: "",
@@ -103,6 +106,33 @@ export default function ProductsPage() {
     description: "",
     importPayload: "",
   });
+
+  const toggleAudienceExpanded = useCallback((audienceId: string) => {
+    setExpandedAudienceIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(audienceId)) {
+        next.delete(audienceId);
+      } else {
+        next.add(audienceId);
+      }
+      return next;
+    });
+  }, []);
+
+  const toggleAudienceSelection = useCallback((audience: AudienceNode) => {
+    setFormState((prev) => {
+      const nextIds = new Set(prev.audienceIds);
+      if (nextIds.has(audience.id)) {
+        nextIds.delete(audience.id);
+      } else {
+        nextIds.add(audience.id);
+      }
+      return {
+        ...prev,
+        audienceIds: Array.from(nextIds),
+      };
+    });
+  }, []);
 
   const audienceTree = useMemo<AudienceNode[]>(() => {
     if (!audiences.length) return [];
