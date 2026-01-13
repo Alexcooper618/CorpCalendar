@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { buildApiUrl } from "../lib/api";
+import { ConflictsModal } from "./ConflictsModal";
 import { EventModal } from "./EventModal";
 
 export type EventType = "custom" | "itProduct";
@@ -216,6 +217,7 @@ export const Calendar: React.FC = () => {
     event?: Event;
   } | null>(null);
   const [dayDetailsDate, setDayDetailsDate] = useState<Date | null>(null);
+  const [isConflictsOpen, setIsConflictsOpen] = useState(false);
 
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
 
@@ -299,11 +301,11 @@ export const Calendar: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (rangeForModal || dayDetailsDate) {
+    if (rangeForModal || dayDetailsDate || isConflictsOpen) {
       fetchProducts();
       fetchAudiences();
     }
-  }, [dayDetailsDate, fetchAudiences, fetchProducts, rangeForModal]);
+  }, [dayDetailsDate, fetchAudiences, fetchProducts, isConflictsOpen, rangeForModal]);
 
   const months = useMemo(() => Array.from({ length: 12 }, (_, m) => m), []);
 
@@ -363,7 +365,14 @@ export const Calendar: React.FC = () => {
             <p className="text-xs text-slate-500 uppercase tracking-wide">Годовой обзор</p>
             <h2 className="text-2xl font-semibold">{currentYear}</h2>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsConflictsOpen(true)}
+              className="px-3 py-1.5 rounded-lg border text-sm text-slate-700 hover:bg-slate-50"
+            >
+              Проверка пересечений
+            </button>
             <button
               onClick={() => setCurrentYear((y) => y - 1)}
               className="px-3 py-1.5 rounded-lg border text-sm hover:bg-slate-50"
@@ -548,6 +557,15 @@ export const Calendar: React.FC = () => {
           }}
         />
       )}
+
+      <ConflictsModal
+        isOpen={isConflictsOpen}
+        events={events}
+        products={products}
+        audienceTree={audienceTree}
+        audienceLookup={audienceLookup}
+        onClose={() => setIsConflictsOpen(false)}
+      />
     </div>
   );
 };
