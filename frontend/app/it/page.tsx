@@ -119,21 +119,6 @@ export default function ProductsPage() {
     });
   }, []);
 
-  const toggleAudienceSelection = useCallback((audience: AudienceNode) => {
-    setFormState((prev) => {
-      const nextIds = new Set(prev.audienceIds);
-      if (nextIds.has(audience.id)) {
-        nextIds.delete(audience.id);
-      } else {
-        nextIds.add(audience.id);
-      }
-      return {
-        ...prev,
-        audienceIds: Array.from(nextIds),
-      };
-    });
-  }, []);
-
   const audienceTree = useMemo<AudienceNode[]>(() => {
     if (!audiences.length) return [];
     return [
@@ -187,6 +172,40 @@ export default function ProductsPage() {
     walk(audienceTree);
     return { byId, parentMap };
   }, [audienceTree]);
+
+  const collectAudienceIds = useCallback(
+    (audienceId: string) => {
+      const root = audienceMaps.byId.get(audienceId);
+      if (!root) return [audienceId];
+      const ids: string[] = [];
+      const walk = (node: AudienceNode) => {
+        ids.push(node.id);
+        node.children?.forEach(walk);
+      };
+      walk(root);
+      return ids;
+    },
+    [audienceMaps.byId]
+  );
+
+  const toggleAudienceSelection = useCallback(
+    (audience: AudienceNode) => {
+      setFormState((prev) => {
+        const nextIds = new Set(prev.audienceIds);
+        const idsToToggle = collectAudienceIds(audience.id);
+        if (nextIds.has(audience.id)) {
+          idsToToggle.forEach((id) => nextIds.delete(id));
+        } else {
+          idsToToggle.forEach((id) => nextIds.add(id));
+        }
+        return {
+          ...prev,
+          audienceIds: Array.from(nextIds),
+        };
+      });
+    },
+    [collectAudienceIds]
+  );
 
   const selectedAudienceIds = useMemo(
     () => new Set(formState.audienceIds),
