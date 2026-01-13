@@ -49,6 +49,9 @@ export class UpdateProductDto {
   audienceId?: string;
 
   @IsOptional()
+  audienceIds?: string[];
+
+  @IsOptional()
   @IsDateString()
   plannedCsiDate?: string;
 }

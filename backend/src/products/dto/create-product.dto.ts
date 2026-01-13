@@ -56,6 +56,9 @@ export class CreateProductDto {
   audienceId?: string;
 
   @IsOptional()
+  audienceIds?: string[];
+
+  @IsOptional()
   @IsDateString()
   plannedCsiDate?: string;
 }

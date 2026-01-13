@@ -18,6 +18,7 @@ export interface Product {
   po: string;
   businessCustomers: string;
   audienceId?: string;
+  audienceIds?: string[];
   plannedCsiDate?: string;
   createdAt: string;
   updatedAt: string;
@@ -36,6 +37,7 @@ interface DbProduct {
   po: string;
   businessCustomers: string;
   audienceId: string | null;
+  audienceIds: string | null;
   plannedCsiDate: string | null;
   createdAt: string;
   updatedAt: string;
@@ -78,6 +80,7 @@ export class ProductsService implements OnModuleInit {
         po TEXT NOT NULL,
         businessCustomers TEXT NOT NULL,
         audienceId TEXT,
+        audienceIds TEXT,
         plannedCsiDate TEXT,
         createdAt TEXT NOT NULL,
         updatedAt TEXT NOT NULL
@@ -89,6 +92,7 @@ export class ProductsService implements OnModuleInit {
     addColumnIfMissing('status', 'status TEXT');
     addColumnIfMissing('sourceSystem', 'sourceSystem TEXT');
     addColumnIfMissing('description', 'description TEXT');
+    addColumnIfMissing('audienceIds', 'audienceIds TEXT');
 
     this.insertStmt = this.db.prepare(`
       INSERT INTO products (
@@ -104,6 +108,7 @@ export class ProductsService implements OnModuleInit {
         po,
         businessCustomers,
         audienceId,
+        audienceIds,
         plannedCsiDate,
         createdAt,
         updatedAt
@@ -120,6 +125,7 @@ export class ProductsService implements OnModuleInit {
         @po,
         @businessCustomers,
         @audienceId,
+        @audienceIds,
         @plannedCsiDate,
         @createdAt,
         @updatedAt
@@ -143,6 +149,7 @@ export class ProductsService implements OnModuleInit {
         po = @po,
         businessCustomers = @businessCustomers,
         audienceId = @audienceId,
+        audienceIds = @audienceIds,
         plannedCsiDate = @plannedCsiDate,
         updatedAt = @updatedAt
       WHERE id = @id
@@ -159,6 +166,9 @@ export class ProductsService implements OnModuleInit {
     const nowIso = new Date().toISOString();
     const createdAt = this.normalizeDateValue(dto.createdAt, nowIso);
     const updatedAt = this.normalizeDateValue(dto.updatedAt, nowIso);
+    const audienceIds = this.normalizeAudienceIds(
+      dto.audienceIds ?? dto.audienceId,
+    );
 
     const product: Product = {
       id: dto.id?.trim() || randomUUID(),
@@ -174,7 +184,8 @@ export class ProductsService implements OnModuleInit {
       businessCustomers: this.normalizeString(
         dto.businessCustomers ?? dto.owner ?? 'Не указано'
       ),
-      audienceId: dto.audienceId?.trim(),
+      audienceId: audienceIds[0],
+      audienceIds: audienceIds.length ? audienceIds : undefined,
       plannedCsiDate: dto.plannedCsiDate,
       createdAt,
       updatedAt,
@@ -292,6 +303,15 @@ export class ProductsService implements OnModuleInit {
     }
 
     const current = this.mapRowToProduct(existing);
+    const hasAudienceIds = Array.isArray(dto.audienceIds);
+    const hasAudienceId = typeof dto.audienceId === 'string';
+    const audienceIds = hasAudienceIds
+      ? this.normalizeAudienceIds(dto.audienceIds)
+      : hasAudienceId
+      ? this.normalizeAudienceIds(dto.audienceId)
+      : this.normalizeAudienceIds(
+          current.audienceIds ?? current.audienceId ?? [],
+        );
     const updated: Product = {
       ...current,
       ...dto,
@@ -308,7 +328,8 @@ export class ProductsService implements OnModuleInit {
         dto.businessCustomers ?? dto.owner,
         current.businessCustomers
       ),
-      audienceId: dto.audienceId?.trim() ?? current.audienceId,
+      audienceId: audienceIds[0],
+      audienceIds,
       plannedCsiDate: dto.plannedCsiDate ?? current.plannedCsiDate,
       updatedAt: new Date().toISOString(),
     };
@@ -353,6 +374,15 @@ export class ProductsService implements OnModuleInit {
       input.businessCustomers ?? input.owner ?? existing?.businessCustomers,
       existing?.businessCustomers ?? 'Не указано'
     );
+    const hasAudienceIds = Array.isArray(input.audienceIds);
+    const hasAudienceId = typeof input.audienceId === 'string';
+    const audienceIds = hasAudienceIds
+      ? this.normalizeAudienceIds(input.audienceIds)
+      : hasAudienceId
+      ? this.normalizeAudienceIds(input.audienceId)
+      : this.normalizeAudienceIds(
+          existing?.audienceIds ?? existing?.audienceId ?? [],
+        );
 
     return {
       id,
@@ -366,7 +396,8 @@ export class ProductsService implements OnModuleInit {
       description: this.normalizeOptional(input.description, existing?.description),
       po,
       businessCustomers,
-      audienceId: input.audienceId?.trim() ?? existing?.audienceId,
+      audienceId: audienceIds[0],
+      audienceIds: audienceIds.length ? audienceIds : undefined,
       plannedCsiDate: input.plannedCsiDate ?? existing?.plannedCsiDate,
       createdAt,
       updatedAt,
@@ -398,6 +429,7 @@ export class ProductsService implements OnModuleInit {
   }
 
   private mapRowToProduct(row: DbProduct): Product {
+    const audienceIds = this.parseAudienceIds(row.audienceIds, row.audienceId);
     return {
       ...row,
       code: row.code ?? undefined,
@@ -406,6 +438,7 @@ export class ProductsService implements OnModuleInit {
       sourceSystem: row.sourceSystem ?? undefined,
       description: row.description ?? undefined,
       audienceId: row.audienceId ?? undefined,
+      audienceIds,
       plannedCsiDate: row.plannedCsiDate ?? undefined,
     };
   }
@@ -419,8 +452,43 @@ export class ProductsService implements OnModuleInit {
       sourceSystem: product.sourceSystem ?? null,
       description: product.description ?? null,
       audienceId: product.audienceId ?? null,
+      audienceIds:
+        product.audienceIds && product.audienceIds.length
+          ? JSON.stringify(product.audienceIds)
+          : null,
       plannedCsiDate: product.plannedCsiDate ?? null,
     };
+  }
+
+  private normalizeAudienceIds(input?: string[] | string): string[] {
+    if (!input) {
+      return [];
+    }
+    const values = Array.isArray(input) ? input : [input];
+    const normalized = values
+      .map((value) => value?.trim())
+      .filter((value): value is string => Boolean(value));
+    return Array.from(new Set(normalized));
+  }
+
+  private parseAudienceIds(
+    raw: string | null,
+    fallback?: string | null
+  ): string[] | undefined {
+    if (raw && raw.trim()) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          return parsed.filter((value) => typeof value === 'string');
+        }
+      } catch (error) {
+        return [raw];
+      }
+    }
+    if (fallback) {
+      return [fallback];
+    }
+    return undefined;
   }
 
   private normalizeDateValue(value?: string, fallback?: string): string {
