@@ -24,7 +24,9 @@ function toInputDate(date: Date) {
 
 export const EventModal = ({
   range,
+  events,
   products,
+  audienceLookup,
   productsError,
   isLoadingProducts,
   onReloadProducts,
@@ -32,7 +34,9 @@ export const EventModal = ({
   onSaved,
 }: {
   range: { start: Date; end?: Date; event?: Event };
+  events: Event[];
   products: Product[];
+  audienceLookup: Map<string, string>;
   productsError?: string;
   isLoadingProducts: boolean;
   onReloadProducts: () => void;
@@ -60,6 +64,7 @@ export const EventModal = ({
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showAudienceConflicts, setShowAudienceConflicts] = useState(false);
 
   const isEditing = Boolean(range.event);
 
@@ -81,13 +86,19 @@ export const EventModal = ({
     [productId, products]
   );
 
+  const resolveProductTitle = (product?: Product) =>
+    product?.title ?? product?.name ?? "";
+
+  const resolveProductOwner = (product?: Product) =>
+    product?.productOwner ?? product?.owner ?? "";
+
   const previewTitle = useMemo(() => {
     if (type === "itProduct") {
-      return selectedProduct?.title || title || titlePlaceholder;
+      return resolveProductTitle(selectedProduct) || title || titlePlaceholder;
     }
 
     return title || titlePlaceholder;
-  }, [selectedProduct?.title, title, titlePlaceholder, type]);
+  }, [selectedProduct, title, titlePlaceholder, type]);
 
   const updateFromRange = () => {
     setTitle(range.event?.title || "");
@@ -133,7 +144,10 @@ export const EventModal = ({
 
   useEffect(() => {
     if (type === "itProduct" && selectedProduct) {
-      setTitle(selectedProduct.title);
+      const productTitle = resolveProductTitle(selectedProduct);
+      if (productTitle) {
+        setTitle(productTitle);
+      }
 
       if (!plannedCsiDate && selectedProduct.plannedCsiDate) {
         setPlannedCsiDate(toInputDate(new Date(selectedProduct.plannedCsiDate)));
@@ -162,7 +176,7 @@ export const EventModal = ({
 
     const finalTitle =
       type === "itProduct"
-        ? selectedProduct?.title || title || titlePlaceholder
+        ? resolveProductTitle(selectedProduct) || title || titlePlaceholder
         : title || titlePlaceholder;
 
     if (!finalTitle.trim()) {
@@ -251,6 +265,123 @@ export const EventModal = ({
     }
   };
 
+  const parseInputDate = (value: string) => {
+    if (!value) return null;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return null;
+    date.setHours(0, 0, 0, 0);
+    return date;
+  };
+
+  const currentRange = useMemo(() => {
+    const start = parseInputDate(startDate);
+    const end = parseInputDate(endDate);
+    if (!start || !end) return null;
+    return { start, end };
+  }, [endDate, startDate]);
+
+  const resolveAudienceLabel = (audienceKey: string) =>
+    audienceLookup.get(audienceKey) ?? audienceKey;
+
+  const resolveEventAudiences = (event: Event, product?: Product) => {
+    if (event.type === "itProduct") {
+      if (product?.audienceIds?.length) {
+        return product.audienceIds;
+      }
+      if (product?.audienceId) {
+        return [product.audienceId];
+      }
+      return [];
+    }
+
+    const deptValue = event.dept?.trim();
+    return deptValue ? [deptValue] : [];
+  };
+
+  const currentAudienceKeys = useMemo(() => {
+    if (type === "itProduct") {
+      if (selectedProduct?.audienceIds?.length) {
+        return selectedProduct.audienceIds;
+      }
+      if (selectedProduct?.audienceId) {
+        return [selectedProduct.audienceId];
+      }
+      return [];
+    }
+    const deptValue = dept.trim();
+    return deptValue ? [deptValue] : [];
+  }, [dept, selectedProduct, type]);
+
+  const rangesOverlap = (startA: Date, endA: Date, startB: Date, endB: Date) =>
+    startA <= endB && endA >= startB;
+
+  const audienceConflicts = useMemo(() => {
+    if (!currentRange) return [];
+    if (!currentAudienceKeys.length) return [];
+
+    const conflicts = new Map<
+      string,
+      {
+        label: string;
+        events: Event[];
+      }
+    >();
+
+    events.forEach((event) => {
+      if (isEditing && event.id === range.event?.id) {
+        return;
+      }
+
+      const eventStart = parseInputDate(event.startDate);
+      const eventEnd = parseInputDate(event.endDate);
+      if (!eventStart || !eventEnd) return;
+      if (!rangesOverlap(currentRange.start, currentRange.end, eventStart, eventEnd)) {
+        return;
+      }
+
+      const eventProduct = event.productId
+        ? products.find((product) => product.id === event.productId)
+        : undefined;
+      const eventAudiences = resolveEventAudiences(event, eventProduct);
+      if (!eventAudiences.length) return;
+
+      const sharedAudiences = eventAudiences.filter((key) =>
+        currentAudienceKeys.includes(key)
+      );
+
+      sharedAudiences.forEach((audienceKey) => {
+        const label = resolveAudienceLabel(audienceKey);
+        const existing = conflicts.get(audienceKey);
+        if (existing) {
+          existing.events.push(event);
+        } else {
+          conflicts.set(audienceKey, { label, events: [event] });
+        }
+      });
+    });
+
+    return Array.from(conflicts.entries()).map(([key, value]) => ({
+      key,
+      ...value,
+    }));
+  }, [
+    currentAudienceKeys,
+    currentRange,
+    events,
+    isEditing,
+    products,
+    range.event?.id,
+  ]);
+
+  const hasAudienceForCheck = currentAudienceKeys.length > 0;
+
+  const formatDate = (value: string) =>
+    new Date(value).toLocaleDateString("ru-RU", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+
   const heading = isEditing ? "Редактирование опроса" : "Новый опрос";
 
   return (
@@ -334,14 +465,14 @@ export const EventModal = ({
                 </option>
                 {products.map((product) => (
                   <option key={product.id} value={product.id}>
-                    {product.title}
+                    {resolveProductTitle(product) || "Без названия"}
                   </option>
                 ))}
               </select>
               <div className="text-xs text-slate-600">
                 {selectedProduct ? (
                   <span>
-                    PO: {selectedProduct.productOwner || "—"} • Кластер: {" "}
+                    PO: {resolveProductOwner(selectedProduct) || "—"} • Кластер:{" "}
                     {selectedProduct.cluster || "—"}
                   </span>
                 ) : (
@@ -391,29 +522,96 @@ export const EventModal = ({
             {!endDate && (
               <p className="text-xs text-amber-600">Нужна дата окончания</p>
             )}
+            <button
+              type="button"
+              onClick={() => setShowAudienceConflicts((prev) => !prev)}
+              className="text-xs text-indigo-700 underline decoration-dotted"
+            >
+              {showAudienceConflicts
+                ? "Скрыть проверку аудиторий"
+                : "Проверить пересечения по аудиториям"}
+            </button>
           </div>
 
-              {type === "itProduct" && (
-                <label className="space-y-1 text-sm">
-                  <span className="text-slate-700">Плановая дата CSI</span>
-                  <input
-                    type="date"
+          {type === "itProduct" && (
+            <label className="space-y-1 text-sm">
+              <span className="text-slate-700">Плановая дата CSI</span>
+              <input
+                type="date"
                 value={plannedCsiDate}
                 onChange={(e) => setPlannedCsiDate(e.target.value)}
                 className="w-full border rounded-md px-3 py-2 text-sm"
-                  />
-                  {selectedProduct?.plannedCsiDate && !plannedCsiDate && (
-                    <p className="text-xs text-slate-500">
-                      По умолчанию: {" "}
-                      {new Date(selectedProduct.plannedCsiDate).toLocaleDateString(
-                        "ru-RU",
-                        { day: "2-digit", month: "2-digit", year: "numeric" }
-                      )}
-                    </p>
+              />
+              {selectedProduct?.plannedCsiDate && !plannedCsiDate && (
+                <p className="text-xs text-slate-500">
+                  По умолчанию:{" "}
+                  {new Date(selectedProduct.plannedCsiDate).toLocaleDateString(
+                    "ru-RU",
+                    { day: "2-digit", month: "2-digit", year: "numeric" }
                   )}
-                </label>
+                </p>
               )}
+            </label>
+          )}
+        </div>
+
+        {showAudienceConflicts && (
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700 space-y-2">
+            <div className="font-medium text-slate-800">
+              Пересечения по аудиториям
             </div>
+            {!hasAudienceForCheck && (
+              <p className="text-xs text-slate-600">
+                Для проверки выберите аудиторию: укажите подразделение или
+                выберите IT продукт с привязанной аудиторией.
+              </p>
+            )}
+            {hasAudienceForCheck && audienceConflicts.length === 0 && (
+              <p className="text-xs text-emerald-700">
+                Пересечений на выбранный период не найдено.
+              </p>
+            )}
+            {hasAudienceForCheck && audienceConflicts.length > 0 && (
+              <div className="space-y-3">
+                {audienceConflicts.map((group) => (
+                  <div key={group.key} className="space-y-1">
+                    <div className="text-xs font-semibold text-slate-600">
+                      {group.label}
+                    </div>
+                    <ul className="space-y-1 text-xs text-slate-600">
+                      {group.events.map((event) => {
+                        const eventProduct = event.productId
+                          ? products.find((product) => product.id === event.productId)
+                          : undefined;
+                        const displayTitle =
+                          event.type === "itProduct"
+                            ? resolveProductTitle(eventProduct) || event.title
+                            : event.title;
+                        return (
+                          <li
+                            key={event.id}
+                            className="flex flex-wrap items-center gap-2"
+                          >
+                            <span className="font-medium text-slate-800">
+                              {displayTitle}
+                            </span>
+                            <span className="rounded-full bg-white px-2 py-0.5 text-[10px] uppercase text-slate-500">
+                              {event.type === "itProduct" ? "IT продукт" : "Польз."}
+                            </span>
+                            <span>
+                              {formatDate(event.startDate)} —{" "}
+                              {formatDate(event.endDate)}
+                            </span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="space-y-2">
           <span className="text-sm text-slate-700">Цветовая метка</span>
