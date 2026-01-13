@@ -8,7 +8,10 @@ import {
   EventType,
   Product,
 } from "./Calendar";
-import { getAudienceConflicts } from "./utils/conflicts";
+import {
+  buildAudienceDescendants,
+  getAudienceConflicts,
+} from "./utils/conflicts";
 
 const toInputDate = (date: Date) =>
   [
@@ -100,6 +103,11 @@ export const ConflictsModal = ({
     });
   }, [events, productFilter, selectedTypes]);
 
+  const audienceDescendants = useMemo(
+    () => buildAudienceDescendants(audienceTree),
+    [audienceTree]
+  );
+
   const audienceConflicts = useMemo(() => {
     if (!currentRange) return [];
     if (!currentAudienceKeys.length) return [];
@@ -108,11 +116,13 @@ export const ConflictsModal = ({
       events: filteredEvents,
       products,
       audienceLookup,
+      audienceDescendants,
       range: currentRange,
       targetAudienceKeys: currentAudienceKeys,
     });
   }, [
     audienceLookup,
+    audienceDescendants,
     currentAudienceKeys,
     currentRange,
     filteredEvents,

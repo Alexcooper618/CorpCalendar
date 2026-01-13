@@ -112,6 +112,7 @@ type GetAudienceConflictsParams = {
   events: Event[];
   products: Product[];
   audienceLookup: Map<string, string>;
+  audienceDescendants: AudienceDescendants;
   range: { start: Date; end: Date };
   targetAudienceKeys: string[];
   excludeEventId?: string;
@@ -121,6 +122,7 @@ export const getAudienceConflicts = ({
   events,
   products,
   audienceLookup,
+  audienceDescendants,
   range,
   targetAudienceKeys,
   excludeEventId,

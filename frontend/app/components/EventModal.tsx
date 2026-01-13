@@ -10,7 +10,10 @@ import {
   parseAudienceIds,
   Product,
 } from "./Calendar";
-import { getAudienceConflicts } from "./utils/conflicts";
+import {
+  buildAudienceDescendants,
+  getAudienceConflicts,
+} from "./utils/conflicts";
 
 const PALETTE = [
   "#0284c7",
@@ -336,6 +339,11 @@ export const EventModal = ({
     return deptValue ? [deptValue] : [];
   }, [audienceId, deptInput, selectedProduct, type]);
 
+  const audienceDescendants = useMemo(
+    () => buildAudienceDescendants(audienceTree),
+    [audienceTree]
+  );
+
   const audienceConflicts = useMemo(() => {
     if (!currentRange) return [];
     if (!currentAudienceKeys.length) return [];
@@ -344,6 +352,7 @@ export const EventModal = ({
       events,
       products,
       audienceLookup,
+      audienceDescendants,
       range: currentRange,
       targetAudienceKeys: currentAudienceKeys,
       excludeEventId: isEditing ? range.event?.id : undefined,
@@ -353,6 +362,7 @@ export const EventModal = ({
     }));
   }, [
     audienceLookup,
+    audienceDescendants,
     currentAudienceKeys,
     currentRange,
     events,
