@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { buildApiUrl } from "../lib/api";
 import { AudiencePickerModal } from "./AudiencePickerModal";
 import {
@@ -10,6 +10,11 @@ import {
   parseAudienceIds,
   Product,
 } from "./Calendar";
+import {
+  buildAudienceDescendants,
+  buildAudienceSetFromKeys,
+  getAudienceConflicts,
+} from "./utils/conflicts";
 
 const PALETTE = [
   "#0284c7",
@@ -317,50 +322,9 @@ export const EventModal = ({
     return audienceKey;
   };
 
-  const resolveEventAudiences = (event: Event, product?: Product) => {
-    if (event.type === "itProduct") {
-      if (product?.audienceIds?.length) {
-        return product.audienceIds;
-      }
-      if (product?.audienceId) {
-        return [product.audienceId];
-      }
-      return [];
-    }
-
-    const deptValue = event.dept?.trim();
-    return deptValue ? [deptValue] : [];
-  };
-
-  const audienceDescendants = useMemo(() => {
-    const map = new Map<string, Set<string>>();
-    const allIds = new Set<string>();
-    const walk = (node: AudienceNode) => {
-      const ids = new Set<string>([node.id]);
-      allIds.add(node.id);
-      node.children?.forEach((child) => {
-        const childIds = walk(child);
-        childIds.forEach((id) => ids.add(id));
-      });
-      map.set(node.id, ids);
-      return ids;
-    };
-    audienceTree.forEach(walk);
-    return { map, allIds };
-  }, [audienceTree]);
-
-  const expandAudienceKey = useCallback(
-    (key: string) => {
-      if (key === "all-employees") {
-        return new Set(audienceDescendants.allIds);
-      }
-      const fromTree = audienceDescendants.map.get(key);
-      if (fromTree) {
-        return new Set(fromTree);
-      }
-      return new Set([key]);
-    },
-    [audienceDescendants]
+  const audienceDescendants = useMemo(
+    () => buildAudienceDescendants(audienceTree),
+    [audienceTree]
   );
 
   const selectedAudienceLabel = audienceId
@@ -381,81 +345,36 @@ export const EventModal = ({
     return deptValue ? [deptValue] : [];
   }, [audienceId, deptInput, selectedProduct, type]);
 
-  const currentAudienceSet = useMemo(() => {
-    const expanded = new Set<string>();
-    currentAudienceKeys.forEach((key) => {
-      expandAudienceKey(key).forEach((id) => expanded.add(id));
-    });
-    return expanded;
-  }, [currentAudienceKeys, expandAudienceKey]);
-
-  const rangesOverlap = (startA: Date, endA: Date, startB: Date, endB: Date) =>
-    startA <= endB && endA >= startB;
-
-  const hasIntersection = (left: Set<string>, right: Set<string>) => {
-    for (const id of left) {
-      if (right.has(id)) return true;
-    }
-    return false;
-  };
+  const currentAudienceSet = useMemo(
+    () => buildAudienceSetFromKeys(currentAudienceKeys, audienceDescendants),
+    [audienceDescendants, currentAudienceKeys]
+  );
 
   const audienceConflicts = useMemo(() => {
     if (!currentRange) return [];
     if (!currentAudienceSet.size) return [];
 
-    const conflicts = new Map<
-      string,
-      {
-        label: string;
-        events: Event[];
-      }
-    >();
-
-    events.forEach((event) => {
-      if (isEditing && event.id === range.event?.id) {
-        return;
-      }
-
-      const eventStart = parseInputDate(event.startDate);
-      const eventEnd = parseInputDate(event.endDate);
-      if (!eventStart || !eventEnd) return;
-      if (!rangesOverlap(currentRange.start, currentRange.end, eventStart, eventEnd)) {
-        return;
-      }
-
-      const eventProduct = event.productId
-        ? products.find((product) => product.id === event.productId)
-        : undefined;
-      const eventAudiences = resolveEventAudiences(event, eventProduct);
-      if (!eventAudiences.length) return;
-
-      eventAudiences.forEach((audienceKey) => {
-        const expandedEventAudience = expandAudienceKey(audienceKey);
-        if (!hasIntersection(expandedEventAudience, currentAudienceSet)) {
-          return;
-        }
-        const label = resolveAudienceLabel(audienceKey);
-        const existing = conflicts.get(audienceKey);
-        if (existing) {
-          existing.events.push(event);
-        } else {
-          conflicts.set(audienceKey, { label, events: [event] });
-        }
-      });
-    });
-
-    return Array.from(conflicts.entries()).map(([key, value]) => ({
-      key,
-      ...value,
+    return getAudienceConflicts({
+      events,
+      products,
+      audienceLookup,
+      audienceDescendants,
+      range: currentRange,
+      targetAudienceSet: currentAudienceSet,
+      excludeEventId: isEditing ? range.event?.id : undefined,
+    }).map((group) => ({
+      ...group,
+      label: resolveAudienceLabel(group.key),
     }));
   }, [
+    audienceDescendants,
+    audienceLookup,
     currentAudienceSet,
     currentRange,
     events,
     isEditing,
     products,
     range.event?.id,
-    expandAudienceKey,
   ]);
 
   const hasAudienceForCheck = currentAudienceSet.size > 0;
