@@ -1,5 +1,4 @@
 import {
-  IsArray,
   IsDateString,
   IsOptional,
   IsString,
@@ -62,8 +61,6 @@ export class CreateProductDto {
   audienceId?: string;
 
   @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
   audienceIds?: string[];
 
   @IsOptional()
