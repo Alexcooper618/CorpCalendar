@@ -165,7 +165,6 @@ export const Calendar: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(false);
   const [productsError, setProductsError] = useState("");
-  const [audiences, setAudiences] = useState<AudienceNode[]>([]);
   const [audienceLookup, setAudienceLookup] = useState<Map<string, string>>(
     new Map()
   );
@@ -232,11 +231,9 @@ export const Calendar: React.FC = () => {
       }
 
       const data = (await res.json()) as AudienceNode[];
-      setAudiences(data);
       setAudienceLookup(buildAudienceLookup(data));
     } catch (error) {
       console.error("Failed to load audiences", error);
-      setAudiences([]);
       setAudienceLookup(new Map());
     }
   }, []);
@@ -277,6 +274,14 @@ export const Calendar: React.FC = () => {
       return event.title;
     },
     [products]
+  );
+
+  const resolveDeptLabel = useCallback(
+    (dept?: string) => {
+      if (!dept) return "";
+      return audienceLookup.get(dept) ?? dept;
+    },
+    [audienceLookup]
   );
 
   const handleDayCellClick = (day: Date, dayEvents: Event[]) => {
@@ -427,7 +432,7 @@ export const Calendar: React.FC = () => {
                                   opacity: isStartDay ? 1 : 0.5,
                                 }}
                                 title={`${displayTitle} • ${typeLabel}${
-                                  ev.dept ? ` • ${ev.dept}` : ""
+                                  ev.dept ? ` • ${resolveDeptLabel(ev.dept)}` : ""
                                 }`}
                                 aria-hidden
                               >
@@ -451,6 +456,7 @@ export const Calendar: React.FC = () => {
           date={dayDetailsDate}
           events={getEventsForDay(dayDetailsDate)}
           products={products}
+          audienceLookup={audienceLookup}
           onClose={() => setDayDetailsDate(null)}
           onAdd={() =>
             setRangeForModal({
@@ -474,7 +480,6 @@ export const Calendar: React.FC = () => {
           range={rangeForModal}
           events={events}
           products={products}
-          audiences={audiences}
           audienceLookup={audienceLookup}
           productsError={productsError}
           isLoadingProducts={isLoadingProducts}
@@ -494,6 +499,7 @@ const DayDetailsModal = ({
   date,
   events,
   products,
+  audienceLookup,
   onClose,
   onAdd,
   onEdit,
@@ -502,6 +508,7 @@ const DayDetailsModal = ({
   date: Date;
   events: Event[];
   products: Product[];
+  audienceLookup: Map<string, string>;
   onClose: () => void;
   onAdd: () => void;
   onEdit: (event: Event) => void;
@@ -545,6 +552,14 @@ const DayDetailsModal = ({
       setIsDeletingId(null);
     }
   };
+
+  const resolveDeptLabel = useCallback(
+    (dept?: string) => {
+      if (!dept) return "";
+      return audienceLookup.get(dept) ?? dept;
+    },
+    [audienceLookup]
+  );
 
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
@@ -652,7 +667,7 @@ const DayDetailsModal = ({
                     <div className="flex flex-wrap gap-2">
                       {event.dept && (
                         <span className="px-2 py-0.5 rounded-full bg-white border text-slate-700">
-                          {event.dept}
+                          {resolveDeptLabel(event.dept)}
                         </span>
                       )}
                       {event.owner && (

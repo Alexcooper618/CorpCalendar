@@ -38,7 +38,6 @@ export const EventModal = ({
   range,
   events,
   products,
-  audiences,
   audienceLookup,
   productsError,
   isLoadingProducts,
@@ -49,7 +48,6 @@ export const EventModal = ({
   range: { start: Date; end?: Date; event?: Event };
   events: Event[];
   products: Product[];
-  audiences: AudienceNode[];
   audienceLookup: Map<string, string>;
   productsError?: string;
   isLoadingProducts: boolean;
@@ -59,7 +57,8 @@ export const EventModal = ({
 }) => {
   const [title, setTitle] = useState(range.event?.title || "");
   const [type, setType] = useState<EventType>(range.event?.type || "custom");
-  const [dept, setDept] = useState(range.event?.dept || "");
+  const [deptInput, setDeptInput] = useState(range.event?.dept || "");
+  const [audienceId, setAudienceId] = useState("");
   const [owner, setOwner] = useState(range.event?.owner || "");
   const [startDate, setStartDate] = useState(
     toInputDate(new Date(range.event?.startDate || range.start))
@@ -112,191 +111,6 @@ export const EventModal = ({
   const resolveProductOwner = (product?: Product) =>
     product?.productOwner ?? product?.owner ?? "";
 
-  const flattenAudiences = (
-    nodes: AudienceNode[],
-    depth = 0,
-    parentPath = ""
-  ): FlatAudience[] => {
-    return nodes.flatMap((node) => {
-      const path = parentPath ? `${parentPath} / ${node.name}` : node.name;
-      const next = [{ ...node, depth, pathLabel: path }];
-      return node.children?.length
-        ? next.concat(flattenAudiences(node.children, depth + 1, path))
-        : next;
-    });
-  };
-
-  const filterAudienceTree = (nodes: AudienceNode[], query: string): AudienceNode[] => {
-    if (!query.trim()) return nodes;
-    const normalized = query.trim().toLowerCase();
-    const walk = (node: AudienceNode): AudienceNode | null => {
-      const matches = node.name.toLowerCase().includes(normalized);
-      const children = node.children
-        ?.map(walk)
-        .filter((child): child is AudienceNode => Boolean(child));
-      if (matches || (children && children.length)) {
-        return { ...node, children: children ?? [] };
-      }
-      return null;
-    };
-    return nodes
-      .map(walk)
-      .filter((node): node is AudienceNode => Boolean(node));
-  };
-
-  const collectAudienceIds = (node: AudienceNode): string[] => {
-    const ids = [node.id];
-    node.children?.forEach((child) => {
-      ids.push(...collectAudienceIds(child));
-    });
-    return ids;
-  };
-
-  const parseAudienceIds = (value?: string | null) => {
-    if (!value) return [];
-    const trimmed = value.trim();
-    if (!trimmed.startsWith("[")) {
-      return [];
-    }
-    try {
-      const parsed = JSON.parse(trimmed);
-      return Array.isArray(parsed)
-        ? parsed.filter((id): id is string => typeof id === "string")
-        : [];
-    } catch {
-      return [];
-    }
-  };
-
-  const audienceTree = useMemo<AudienceNode[]>(() => {
-    if (!audiences.length) return [];
-    return [
-      {
-        id: ALL_EMPLOYEES_ID,
-        name: ALL_EMPLOYEES_LABEL,
-        path: ALL_EMPLOYEES_LABEL,
-        children: audiences,
-      },
-    ];
-  }, [audiences]);
-
-  const flattenedAudiences = useMemo(
-    () => flattenAudiences(audienceTree),
-    [audienceTree]
-  );
-
-  const filteredAudienceTree = useMemo(
-    () => filterAudienceTree(audienceTree, audienceQuery),
-    [audienceTree, audienceQuery]
-  );
-
-  const toggleAudienceExpanded = (audienceId: string) => {
-    setExpandedAudienceIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(audienceId)) {
-        next.delete(audienceId);
-      } else {
-        next.add(audienceId);
-      }
-      return next;
-    });
-  };
-
-  const toggleAudienceSelection = (audience: AudienceNode) => {
-    setSelectedAudienceIds((prev) => {
-      const nextIds = new Set(prev);
-      const idsToToggle = collectAudienceIds(audience);
-      if (nextIds.has(audience.id)) {
-        idsToToggle.forEach((id) => nextIds.delete(id));
-      } else {
-        idsToToggle.forEach((id) => nextIds.add(id));
-      }
-      if (nextIds.size > 0) {
-        setLegacyDept("");
-      }
-      return Array.from(nextIds);
-    });
-  };
-
-  const selectedAudienceSet = useMemo(
-    () => new Set(selectedAudienceIds),
-    [selectedAudienceIds]
-  );
-
-  const effectiveExpandedAudienceIds = useMemo(() => {
-    if (!audienceQuery.trim()) {
-      return expandedAudienceIds;
-    }
-    const autoExpanded = new Set<string>();
-    const walk = (nodes: AudienceNode[]) => {
-      nodes.forEach((node) => {
-        if (node.children?.length) {
-          autoExpanded.add(node.id);
-          walk(node.children);
-        }
-      });
-    };
-    walk(filteredAudienceTree);
-    return autoExpanded;
-  }, [audienceQuery, filteredAudienceTree, expandedAudienceIds]);
-
-  useEffect(() => {
-    if (audienceTree.length && expandedAudienceIds.size === 0) {
-      setExpandedAudienceIds(new Set([ALL_EMPLOYEES_ID]));
-    }
-  }, [audienceTree, expandedAudienceIds.size]);
-
-  const legacyDeptLabel = useMemo(() => {
-    if (parseAudienceIds(legacyDept).length) return "";
-    return legacyDept.trim();
-  }, [legacyDept]);
-
-  const renderAudienceNode = (node: AudienceNode, depth = 0) => {
-    const isExpanded = effectiveExpandedAudienceIds.has(node.id);
-    const isSelected = selectedAudienceSet.has(node.id);
-    const hasChildren = Boolean(node.children && node.children.length);
-
-    return (
-      <li key={node.id}>
-        <div
-          className="flex items-center gap-2 text-sm text-slate-700"
-          style={{ paddingLeft: `${depth * 16}px` }}
-        >
-          {hasChildren ? (
-            <button
-              type="button"
-              onClick={() => toggleAudienceExpanded(node.id)}
-              className="inline-flex h-5 w-5 items-center justify-center rounded border border-slate-200 text-xs font-semibold text-slate-600 hover:border-indigo-200 hover:text-indigo-700"
-              aria-label={isExpanded ? "Свернуть группу" : "Развернуть группу"}
-            >
-              {isExpanded ? "−" : "+"}
-            </button>
-          ) : (
-            <span className="inline-flex h-5 w-5" />
-          )}
-          <button
-            type="button"
-            onClick={() => toggleAudienceSelection(node)}
-            className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-slate-300 transition"
-            aria-pressed={isSelected}
-          >
-            <span
-              className={`h-2.5 w-2.5 rounded-full ${
-                isSelected ? "bg-emerald-500" : "bg-transparent"
-              }`}
-            />
-          </button>
-          <span>{node.name}</span>
-        </div>
-        {hasChildren && isExpanded && (
-          <ul className="mt-1 space-y-1">
-            {node.children?.map((child) => renderAudienceNode(child, depth + 1))}
-          </ul>
-        )}
-      </li>
-    );
-  };
-
   const previewTitle = useMemo(() => {
     if (type === "itProduct") {
       return resolveProductTitle(selectedProduct) || title || titlePlaceholder;
@@ -308,7 +122,8 @@ export const EventModal = ({
   const updateFromRange = () => {
     setTitle(range.event?.title || "");
     setType(range.event?.type || "custom");
-    setDept(range.event?.dept || "");
+    setDeptInput(range.event?.dept || "");
+    setAudienceId("");
     setOwner(range.event?.owner || "");
     setStartDate(toInputDate(new Date(range.event?.startDate || range.start)));
     setEndDate(toInputDate(new Date(range.event?.endDate || range.end || range.start)));
@@ -347,6 +162,15 @@ export const EventModal = ({
   useEffect(() => {
     updateFromRange();
   }, [range]);
+
+  useEffect(() => {
+    if (type !== "custom") return;
+    if (!deptInput || audienceId) return;
+    if (audienceLookup.has(deptInput)) {
+      setAudienceId(deptInput);
+      setDeptInput("");
+    }
+  }, [audienceId, audienceLookup, deptInput, type]);
 
   useEffect(() => {
     if (type === "itProduct" && !productId && products.length > 0) {
@@ -403,6 +227,9 @@ export const EventModal = ({
         ? new Date(plannedCsiDate).toISOString()
         : undefined;
 
+    const deptValue =
+      type === "custom" ? audienceId || deptInput.trim() : deptInput.trim();
+
     setError("");
     setIsSaving(true);
 
@@ -419,12 +246,7 @@ export const EventModal = ({
             plannedCsiDate: plannedCsiDateIso,
             startDate: start.toISOString(),
             endDate: end.toISOString(),
-            dept:
-              type === "custom"
-                ? selectedAudienceIds.length
-                  ? JSON.stringify(selectedAudienceIds)
-                  : legacyDept?.trim() || undefined
-                : dept || undefined,
+            dept: deptValue || undefined,
             owner: owner || undefined,
             color,
             comment: comment || undefined,
@@ -498,9 +320,7 @@ export const EventModal = ({
   }, [endDate, startDate]);
 
   const resolveAudienceLabel = (audienceKey: string) =>
-    audienceLookup.get(audienceKey) ??
-    flattenedAudiences.find((audience) => audience.id === audienceKey)?.pathLabel ??
-    audienceKey;
+    audienceLookup.get(audienceKey) ?? audienceKey;
 
   const resolveEventAudiences = (event: Event, product?: Product) => {
     if (event.type === "itProduct") {
@@ -513,11 +333,21 @@ export const EventModal = ({
       return [];
     }
 
-    const parsed = parseAudienceIds(event.dept);
-    if (parsed.length) return parsed;
     const deptValue = event.dept?.trim();
     return deptValue ? [deptValue] : [];
   };
+
+  const selectedAudienceLabel = audienceId
+    ? resolveAudienceLabel(audienceId)
+    : "";
+
+  const audienceOptions = useMemo(
+    () =>
+      Array.from(audienceLookup.entries())
+        .map(([id, label]) => ({ id, label }))
+        .sort((a, b) => a.label.localeCompare(b.label, "ru-RU")),
+    [audienceLookup]
+  );
 
   const currentAudienceKeys = useMemo(() => {
     if (type === "itProduct") {
@@ -529,11 +359,9 @@ export const EventModal = ({
       }
       return [];
     }
-    if (selectedAudienceIds.length) {
-      return selectedAudienceIds;
-    }
-    return legacyDeptLabel ? [legacyDeptLabel] : [];
-  }, [legacyDeptLabel, selectedAudienceIds, selectedProduct, type]);
+    const deptValue = (audienceId || deptInput).trim();
+    return deptValue ? [deptValue] : [];
+  }, [audienceId, deptInput, selectedProduct, type]);
 
   const rangesOverlap = (startA: Date, endA: Date, startB: Date, endB: Date) =>
     startA <= endB && endA >= startB;
@@ -715,60 +543,52 @@ export const EventModal = ({
             />
           </label>
 
-          {type === "custom" && (
-            <div className="space-y-2 text-sm md:col-span-2">
-              <div className="grid gap-2 md:grid-cols-[1fr_2fr]">
-                <label className="flex flex-col gap-1">
-                  <span className="text-slate-700">Поиск аудитории</span>
-                  <input
-                    value={audienceQuery}
-                    onChange={(e) => setAudienceQuery(e.target.value)}
-                    placeholder="Введите часть названия"
-                    className="w-full border rounded-md px-3 py-2 text-sm"
-                  />
+          {type === "custom" ? (
+            <div className="space-y-2 text-sm">
+              <label className="space-y-1 block">
+                <span className="text-slate-700">Аудитория из справочника</span>
+                <select
+                  value={audienceId}
+                  onChange={(e) => {
+                    setAudienceId(e.target.value);
+                    setDeptInput("");
+                  }}
+                  className="w-full border rounded-md px-3 py-2 text-sm"
+                >
+                  <option value="">Выберите аудиторию</option>
+                  {audienceOptions.map((audience) => (
+                    <option key={audience.id} value={audience.id}>
+                      {audience.label}
+                    </option>
+                  ))}
+                </select>
+                {audienceId && (
                   <p className="text-xs text-slate-500">
-                    Используйте буллеты, чтобы выбрать сразу несколько аудиторий.
+                    Выбрано: {selectedAudienceLabel}
                   </p>
-                </label>
-                <div className="flex flex-col gap-1">
-                  <span className="text-slate-700">Выбор аудитории</span>
-                  <div className="max-h-48 overflow-auto rounded-md border border-slate-200 px-3 py-2">
-                    {filteredAudienceTree.length ? (
-                      <ul className="space-y-1">
-                        {filteredAudienceTree.map((node) => renderAudienceNode(node))}
-                      </ul>
-                    ) : (
-                      <p className="text-xs text-slate-500">
-                        Нет совпадений по запросу.
-                      </p>
-                    )}
-                  </div>
-                  <p className="text-xs text-slate-500">
-                    Выбрано групп: {selectedAudienceIds.length}
-                  </p>
-                </div>
-              </div>
-              {legacyDeptLabel && (
-                <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
-                  <span>Сохранено текстом: {legacyDeptLabel}</span>
-                  <button
-                    type="button"
-                    onClick={() => setLegacyDept("")}
-                    className="text-indigo-700 underline"
-                  >
-                    Очистить
-                  </button>
-                </div>
-              )}
+                )}
+              </label>
+              <label className="space-y-1 block">
+                <span className="text-slate-700">Подразделение вручную</span>
+                <input
+                  value={deptInput}
+                  onChange={(e) => {
+                    setDeptInput(e.target.value);
+                    if (e.target.value) {
+                      setAudienceId("");
+                    }
+                  }}
+                  placeholder="Например: HR, Аналитика, Регион"
+                  className="w-full border rounded-md px-3 py-2 text-sm"
+                />
+              </label>
             </div>
-          )}
-
-          {type === "itProduct" && (
+          ) : (
             <label className="space-y-1 text-sm">
               <span className="text-slate-700">Подразделение</span>
               <input
-                value={dept}
-                onChange={(e) => setDept(e.target.value)}
+                value={deptInput}
+                onChange={(e) => setDeptInput(e.target.value)}
                 placeholder="Например: HR, Аналитика, Регион"
                 className="w-full border rounded-md px-3 py-2 text-sm"
               />
