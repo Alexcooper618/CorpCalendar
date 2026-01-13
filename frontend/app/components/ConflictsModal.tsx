@@ -8,7 +8,7 @@ import {
   EventType,
   Product,
 } from "./Calendar";
-import { buildAudienceDescendants, getAudienceConflicts } from "./utils/conflicts";
+import { getAudienceConflicts } from "./utils/conflicts";
 
 const toInputDate = (date: Date) =>
   [
@@ -77,11 +77,6 @@ export const ConflictsModal = ({
     return { start, end };
   }, [endDate, startDate]);
 
-  const audienceDescendants = useMemo(
-    () => buildAudienceDescendants(audienceTree),
-    [audienceTree]
-  );
-
   const currentAudienceKeys = useMemo(() => {
     const deptValue = (audienceId || deptInput).trim();
     return deptValue ? [deptValue] : [];
@@ -113,12 +108,10 @@ export const ConflictsModal = ({
       events: filteredEvents,
       products,
       audienceLookup,
-      audienceDescendants,
       range: currentRange,
       targetAudienceKeys: currentAudienceKeys,
     });
   }, [
-    audienceDescendants,
     audienceLookup,
     currentAudienceKeys,
     currentRange,
