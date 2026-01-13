@@ -66,22 +66,18 @@ const rangesOverlap = (startA: Date, endA: Date, startB: Date, endB: Date) =>
 
 const audiencesOverlap = (
   audienceKey: string,
-  targetKeys: string[],
+  targetKey: string,
   audienceDescendants: AudienceDescendants
 ) => {
-  if (!targetKeys.length) return false;
   if (audienceKey === ALL_EMPLOYEES_ID) return true;
+  if (targetKey === ALL_EMPLOYEES_ID) return true;
+  if (targetKey === audienceKey) return true;
+
+  const targetDescendants = audienceDescendants.map.get(targetKey);
+  if (targetDescendants?.has(audienceKey)) return true;
 
   const eventDescendants = audienceDescendants.map.get(audienceKey);
-
-  for (const targetKey of targetKeys) {
-    if (targetKey === ALL_EMPLOYEES_ID) return true;
-    if (targetKey === audienceKey) return true;
-
-    const targetDescendants = audienceDescendants.map.get(targetKey);
-    if (targetDescendants?.has(audienceKey)) return true;
-    if (eventDescendants?.has(targetKey)) return true;
-  }
+  if (eventDescendants?.has(targetKey)) return true;
 
   return false;
 };
@@ -153,16 +149,19 @@ export const getAudienceConflicts = ({
     const eventAudiences = resolveEventAudiences(event, eventProduct);
     if (!eventAudiences.length) return;
 
-    eventAudiences.forEach((audienceKey) => {
-      if (!audiencesOverlap(audienceKey, targetAudienceKeys, audienceDescendants)) {
+    targetAudienceKeys.forEach((targetKey) => {
+      const matchesTarget = eventAudiences.some((audienceKey) =>
+        audiencesOverlap(audienceKey, targetKey, audienceDescendants)
+      );
+      if (!matchesTarget) {
         return;
       }
-      const label = resolveAudienceLabel(audienceKey, audienceLookup);
-      const existing = conflicts.get(audienceKey);
+      const label = resolveAudienceLabel(targetKey, audienceLookup);
+      const existing = conflicts.get(targetKey);
       if (existing) {
         existing.events.push(event);
       } else {
-        conflicts.set(audienceKey, { label, events: [event] });
+        conflicts.set(targetKey, { label, events: [event] });
       }
     });
   });

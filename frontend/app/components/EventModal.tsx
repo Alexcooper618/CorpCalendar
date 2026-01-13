@@ -10,10 +10,7 @@ import {
   parseAudienceIds,
   Product,
 } from "./Calendar";
-import {
-  buildAudienceDescendants,
-  getAudienceConflicts,
-} from "./utils/conflicts";
+import { buildAudienceDescendants, getAudienceConflicts } from "./utils/conflicts";
 
 const PALETTE = [
   "#0284c7",

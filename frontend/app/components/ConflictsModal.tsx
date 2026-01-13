@@ -8,10 +8,7 @@ import {
   EventType,
   Product,
 } from "./Calendar";
-import {
-  buildAudienceDescendants,
-  getAudienceConflicts,
-} from "./utils/conflicts";
+import { buildAudienceDescendants, getAudienceConflicts } from "./utils/conflicts";
 
 const toInputDate = (date: Date) =>
   [
