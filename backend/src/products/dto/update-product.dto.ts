@@ -1,5 +1,4 @@
 import {
-  IsArray,
   IsDateString,
   IsOptional,
   IsString,
@@ -55,8 +54,6 @@ export class UpdateProductDto {
   audienceId?: string;
 
   @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
   audienceIds?: string[];
 
   @IsOptional()
