@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { buildApiUrl } from "../lib/api";
-import { Event, EventType, Product } from "./Calendar";
+import { Event, EventType, parseAudienceIds, Product } from "./Calendar";
 
 const PALETTE = [
   "#0284c7",
@@ -135,7 +135,7 @@ export const EventModal = ({
     );
     setColor(range.event?.color || PALETTE[0]);
     setComment(range.event?.comment || "");
-    const parsedAudiences = parseAudienceIds(range.event?.dept);
+    const parsedAudiences = parseAudienceIds(range.event?.dept) ?? [];
     setSelectedAudienceIds(parsedAudiences);
     const legacyDeptValue =
       parsedAudiences.length === 0 && range.event?.dept

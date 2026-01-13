@@ -34,7 +34,7 @@ const resolveProductTitle = (product?: Product) =>
 const resolveProductOwner = (product?: Product) =>
   product?.productOwner ?? product?.owner ?? "";
 
-const parseAudienceIds = (
+export const parseAudienceIds = (
   raw?: string[] | string | null,
   fallback?: string | null
 ): string[] | undefined => {
