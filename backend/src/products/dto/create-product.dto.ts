@@ -1,4 +1,10 @@
-import { IsDateString, IsOptional, IsString, MinLength } from 'class-validator';
+import {
+  IsArray,
+  IsDateString,
+  IsOptional,
+  IsString,
+  MinLength,
+} from 'class-validator';
 
 export class CreateProductDto {
   @IsOptional()
@@ -56,6 +62,8 @@ export class CreateProductDto {
   audienceId?: string;
 
   @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
   audienceIds?: string[];
 
   @IsOptional()
