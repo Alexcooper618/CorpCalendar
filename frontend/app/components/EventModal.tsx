@@ -319,8 +319,16 @@ export const EventModal = ({
     return { start, end };
   }, [endDate, startDate]);
 
-  const resolveAudienceLabel = (audienceKey: string) =>
-    audienceLookup.get(audienceKey) ?? audienceKey;
+  const resolveAudienceLabel = (audienceKey: string) => {
+    const label = audienceLookup.get(audienceKey);
+    if (typeof label === "string" && label.trim()) {
+      return label;
+    }
+    if (label) {
+      return String(label);
+    }
+    return audienceKey;
+  };
 
   const resolveEventAudiences = (event: Event, product?: Product) => {
     if (event.type === "itProduct") {
