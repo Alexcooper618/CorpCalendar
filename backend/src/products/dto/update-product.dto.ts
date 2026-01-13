@@ -1,4 +1,10 @@
-import { IsDateString, IsOptional, IsString, MinLength } from 'class-validator';
+import {
+  IsArray,
+  IsDateString,
+  IsOptional,
+  IsString,
+  MinLength,
+} from 'class-validator';
 
 export class UpdateProductDto {
   @IsOptional()
@@ -47,6 +53,11 @@ export class UpdateProductDto {
   @IsOptional()
   @IsString()
   audienceId?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  audienceIds?: string[];
 
   @IsOptional()
   @IsDateString()

@@ -1,4 +1,5 @@
 import { NestFactory } from '@nestjs/core';
+import { json, urlencoded } from 'express';
 import { AppModule } from './app.module';
 import { existsSync, readFileSync } from 'fs';
 import { resolve } from 'path';
@@ -30,8 +31,12 @@ loadEnv();
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { cors: true });
+  const bodyLimit =
+    process.env.API_BODY_LIMIT ?? process.env.REQUEST_BODY_LIMIT ?? '50mb';
 
   app.setGlobalPrefix('api');
+  app.use(json({ limit: bodyLimit }));
+  app.use(urlencoded({ extended: true, limit: bodyLimit }));
 
   const port = process.env.PORT || 4000;
   await app.listen(port, '0.0.0.0');
