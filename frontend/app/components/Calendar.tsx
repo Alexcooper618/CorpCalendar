@@ -371,7 +371,7 @@ export const Calendar: React.FC = () => {
               onClick={() => setIsConflictsOpen(true)}
               className="px-3 py-1.5 rounded-lg border text-sm text-slate-700 hover:bg-slate-50"
             >
-              Проверка пересечений
+              Нагрузка аудиторий
             </button>
             <button
               onClick={() => setCurrentYear((y) => y - 1)}

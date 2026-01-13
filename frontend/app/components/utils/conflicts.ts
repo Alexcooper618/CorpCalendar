@@ -13,6 +13,28 @@ export type AudienceConflictGroup = {
   events: Event[];
 };
 
+export type AudienceOverlapGroup = {
+  key: string;
+  label: string;
+  totalEvents: number;
+  overlapPairs: number;
+  overlappingEvents: Event[];
+};
+
+export type AudienceLoadEntry = {
+  key: string;
+  label: string;
+  totalEvents: number;
+};
+
+export type AudienceOverlapReport = {
+  totalEvents: number;
+  totalOverlapGroups: number;
+  totalOverlappingEvents: number;
+  overlapGroups: AudienceOverlapGroup[];
+  loadRanking: AudienceLoadEntry[];
+};
+
 export const buildAudienceDescendants = (
   audienceTree: AudienceNode[]
 ): AudienceDescendants => {
@@ -170,4 +192,130 @@ export const getAudienceConflicts = ({
     key,
     ...value,
   }));
+};
+
+type GetAudienceOverlapReportParams = {
+  events: Event[];
+  products: Product[];
+  audienceLookup: Map<string, string>;
+  audienceDescendants: AudienceDescendants;
+  range: { start: Date; end: Date };
+};
+
+export const getAudienceOverlapReport = ({
+  events,
+  products,
+  audienceLookup,
+  audienceDescendants,
+  range,
+}: GetAudienceOverlapReportParams): AudienceOverlapReport => {
+  const eventEntries = events.flatMap((event) => {
+    const eventStart = parseEventDate(event.startDate);
+    const eventEnd = parseEventDate(event.endDate);
+    if (!eventStart || !eventEnd) return [];
+    if (!rangesOverlap(range.start, range.end, eventStart, eventEnd)) {
+      return [];
+    }
+
+    const eventProduct = event.productId
+      ? products.find((product) => product.id === event.productId)
+      : undefined;
+    const eventAudiences = resolveEventAudiences(event, eventProduct);
+    const expandedAudiences = buildAudienceSetFromKeys(
+      eventAudiences,
+      audienceDescendants
+    );
+
+    return [
+      {
+        event,
+        start: eventStart,
+        end: eventEnd,
+        audienceIds: expandedAudiences,
+      },
+    ];
+  });
+
+  const totalEvents = eventEntries.length;
+  const audienceEventMap = new Map<string, typeof eventEntries>();
+
+  eventEntries.forEach((entry) => {
+    entry.audienceIds.forEach((audienceId) => {
+      const list = audienceEventMap.get(audienceId);
+      if (list) {
+        list.push(entry);
+      } else {
+        audienceEventMap.set(audienceId, [entry]);
+      }
+    });
+  });
+
+  const loadRanking = Array.from(audienceEventMap.entries())
+    .filter(([key]) => key !== ALL_EMPLOYEES_ID)
+    .map(([key, list]) => ({
+      key,
+      label: resolveAudienceLabel(key, audienceLookup),
+      totalEvents: list.length,
+    }))
+    .sort((a, b) => {
+      if (b.totalEvents !== a.totalEvents) {
+        return b.totalEvents - a.totalEvents;
+      }
+      return a.label.localeCompare(b.label, "ru");
+    });
+
+  const overlapGroups: AudienceOverlapGroup[] = [];
+  const overlappingEventIds = new Set<string>();
+
+  audienceEventMap.forEach((entries, audienceId) => {
+    if (entries.length < 2) return;
+    let overlapPairs = 0;
+    const localOverlaps = new Set<string>();
+
+    for (let i = 0; i < entries.length; i += 1) {
+      const current = entries[i];
+      for (let j = i + 1; j < entries.length; j += 1) {
+        const candidate = entries[j];
+        if (rangesOverlap(current.start, current.end, candidate.start, candidate.end)) {
+          overlapPairs += 1;
+          localOverlaps.add(current.event.id);
+          localOverlaps.add(candidate.event.id);
+        }
+      }
+    }
+
+    if (!overlapPairs) return;
+
+    localOverlaps.forEach((id) => overlappingEventIds.add(id));
+
+    const overlappingEvents = entries
+      .filter((entry) => localOverlaps.has(entry.event.id))
+      .map((entry) => entry.event);
+
+    overlapGroups.push({
+      key: audienceId,
+      label: resolveAudienceLabel(audienceId, audienceLookup),
+      totalEvents: entries.length,
+      overlapPairs,
+      overlappingEvents,
+    });
+  });
+
+  overlapGroups.sort((a, b) => {
+    if (b.overlapPairs !== a.overlapPairs) {
+      return b.overlapPairs - a.overlapPairs;
+    }
+    if (b.totalEvents !== a.totalEvents) {
+      return b.totalEvents - a.totalEvents;
+    }
+    return a.label.localeCompare(b.label, "ru");
+  });
+
+  return {
+    totalEvents,
+    totalOverlapGroups: overlapGroups.length,
+    totalOverlappingEvents: overlappingEventIds.size,
+    overlapGroups,
+    loadRanking,
+  };
 };
