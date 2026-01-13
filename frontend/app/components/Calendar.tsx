@@ -18,7 +18,7 @@ export type Product = {
   audienceIds?: string[];
 };
 
-type AudienceNode = {
+export type AudienceNode = {
   id: string;
   name: string;
   path: string;
@@ -33,6 +33,17 @@ const resolveProductTitle = (product?: Product) =>
 
 const resolveProductOwner = (product?: Product) =>
   product?.productOwner ?? product?.owner ?? "";
+
+const normalizeList = <T,>(payload: unknown, fallback: T[] = []): T[] => {
+  if (Array.isArray(payload)) return payload as T[];
+  if (payload && typeof payload === "object") {
+    const asAny = payload as Record<string, unknown>;
+    if (Array.isArray(asAny.items)) return asAny.items as T[];
+    if (Array.isArray(asAny.data)) return asAny.data as T[];
+    if (Array.isArray(asAny.results)) return asAny.results as T[];
+  }
+  return fallback;
+};
 
 export const parseAudienceIds = (
   raw?: string[] | string | null,
@@ -198,6 +209,7 @@ export const Calendar: React.FC = () => {
   const [audienceLookup, setAudienceLookup] = useState<Map<string, string>>(
     new Map()
   );
+  const [audienceTree, setAudienceTree] = useState<AudienceNode[]>([]);
   const [rangeForModal, setRangeForModal] = useState<{
     start: Date;
     end?: Date;
@@ -262,9 +274,22 @@ export const Calendar: React.FC = () => {
       }
 
       const data = (await res.json()) as AudienceNode[];
-      setAudienceLookup(buildAudienceLookup(data));
+      const normalized = normalizeList<AudienceNode>(data);
+      const tree = normalized.length
+        ? [
+            {
+              id: ALL_EMPLOYEES_ID,
+              name: ALL_EMPLOYEES_LABEL,
+              path: ALL_EMPLOYEES_LABEL,
+              children: normalized,
+            },
+          ]
+        : [];
+      setAudienceTree(tree);
+      setAudienceLookup(buildAudienceLookup(tree));
     } catch (error) {
       console.error("Failed to load audiences", error);
+      setAudienceTree([]);
       setAudienceLookup(new Map());
     }
   }, []);
@@ -511,6 +536,7 @@ export const Calendar: React.FC = () => {
           range={rangeForModal}
           events={events}
           products={products}
+          audienceTree={audienceTree}
           audienceLookup={audienceLookup}
           productsError={productsError}
           isLoadingProducts={isLoadingProducts}
