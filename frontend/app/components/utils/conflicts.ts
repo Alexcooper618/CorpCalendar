@@ -64,11 +64,22 @@ const parseEventDate = (value: string) => {
 const rangesOverlap = (startA: Date, endA: Date, startB: Date, endB: Date) =>
   startA <= endB && endA >= startB;
 
-const audiencesOverlap = (audienceKey: string, targetKeys: string[]) => {
-  if (!targetKeys.length) return false;
+const audiencesOverlap = (
+  audienceKey: string,
+  targetKey: string,
+  audienceDescendants: AudienceDescendants
+) => {
   if (audienceKey === ALL_EMPLOYEES_ID) return true;
-  if (targetKeys.includes(ALL_EMPLOYEES_ID)) return true;
-  return targetKeys.includes(audienceKey);
+  if (targetKey === ALL_EMPLOYEES_ID) return true;
+  if (targetKey === audienceKey) return true;
+
+  const targetDescendants = audienceDescendants.map.get(targetKey);
+  if (targetDescendants?.has(audienceKey)) return true;
+
+  const eventDescendants = audienceDescendants.map.get(audienceKey);
+  if (eventDescendants?.has(targetKey)) return true;
+
+  return false;
 };
 
 const resolveAudienceLabel = (audienceKey: string, audienceLookup: Map<string, string>) => {
@@ -136,16 +147,19 @@ export const getAudienceConflicts = ({
     const eventAudiences = resolveEventAudiences(event, eventProduct);
     if (!eventAudiences.length) return;
 
-    eventAudiences.forEach((audienceKey) => {
-      if (!audiencesOverlap(audienceKey, targetAudienceKeys)) {
+    targetAudienceKeys.forEach((targetKey) => {
+      const matchesTarget = eventAudiences.some((audienceKey) =>
+        audiencesOverlap(audienceKey, targetKey, audienceDescendants)
+      );
+      if (!matchesTarget) {
         return;
       }
-      const label = resolveAudienceLabel(audienceKey, audienceLookup);
-      const existing = conflicts.get(audienceKey);
+      const label = resolveAudienceLabel(targetKey, audienceLookup);
+      const existing = conflicts.get(targetKey);
       if (existing) {
         existing.events.push(event);
       } else {
-        conflicts.set(audienceKey, { label, events: [event] });
+        conflicts.set(targetKey, { label, events: [event] });
       }
     });
   });
