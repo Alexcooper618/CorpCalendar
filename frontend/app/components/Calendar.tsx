@@ -8,10 +8,49 @@ export type EventType = "custom" | "itProduct";
 
 export type Product = {
   id: string;
-  title: string;
+  title?: string;
+  name?: string;
   productOwner?: string;
+  owner?: string;
   cluster?: string;
   plannedCsiDate?: string;
+  audienceId?: string;
+  audienceIds?: string[];
+};
+
+type AudienceNode = {
+  id: string;
+  name: string;
+  path: string;
+  children?: AudienceNode[];
+};
+
+const ALL_EMPLOYEES_ID = "all-employees";
+const ALL_EMPLOYEES_LABEL = "Все сотрудники";
+
+const resolveProductTitle = (product?: Product) =>
+  product?.title ?? product?.name ?? "";
+
+const resolveProductOwner = (product?: Product) =>
+  product?.productOwner ?? product?.owner ?? "";
+
+const buildAudienceLookup = (nodes: AudienceNode[]) => {
+  const lookup = new Map<string, string>();
+  const walk = (node: AudienceNode) => {
+    if (node.id === ALL_EMPLOYEES_ID) {
+      lookup.set(node.id, ALL_EMPLOYEES_LABEL);
+    } else if (node.path) {
+      const trimmed = node.path.startsWith(`${ALL_EMPLOYEES_LABEL} / `)
+        ? node.path.replace(`${ALL_EMPLOYEES_LABEL} / `, "")
+        : node.path;
+      lookup.set(node.id, trimmed);
+    } else {
+      lookup.set(node.id, node.name);
+    }
+    node.children?.forEach(walk);
+  };
+  nodes.forEach(walk);
+  return lookup;
 };
 
 export type Event = {
@@ -126,6 +165,9 @@ export const Calendar: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(false);
   const [productsError, setProductsError] = useState("");
+  const [audienceLookup, setAudienceLookup] = useState<Map<string, string>>(
+    new Map()
+  );
   const [rangeForModal, setRangeForModal] = useState<{
     start: Date;
     end?: Date;
@@ -166,13 +208,33 @@ export const Calendar: React.FC = () => {
         throw new Error("Не удалось загрузить продукты");
       }
 
-      const data = await res.json();
-      setProducts(data as Product[]);
+      const data = (await res.json()) as Product[];
+      const normalized = data.map((product) => ({
+        ...product,
+        title: product.title ?? product.name ?? "",
+        productOwner: product.productOwner ?? product.owner,
+      }));
+      setProducts(normalized);
     } catch (error) {
       console.error("Failed to load products", error);
       setProductsError("Не удалось загрузить справочник продуктов");
     } finally {
       setIsLoadingProducts(false);
+    }
+  }, []);
+
+  const fetchAudiences = useCallback(async () => {
+    try {
+      const res = await fetch(buildApiUrl("/api/audiences"));
+      if (!res.ok) {
+        throw new Error("Не удалось загрузить аудитории");
+      }
+
+      const data = (await res.json()) as AudienceNode[];
+      setAudienceLookup(buildAudienceLookup(data));
+    } catch (error) {
+      console.error("Failed to load audiences", error);
+      setAudienceLookup(new Map());
     }
   }, []);
 
@@ -183,8 +245,9 @@ export const Calendar: React.FC = () => {
   useEffect(() => {
     if (rangeForModal || dayDetailsDate) {
       fetchProducts();
+      fetchAudiences();
     }
-  }, [dayDetailsDate, fetchProducts, rangeForModal]);
+  }, [dayDetailsDate, fetchAudiences, fetchProducts, rangeForModal]);
 
   const months = useMemo(() => Array.from({ length: 12 }, (_, m) => m), []);
 
@@ -202,8 +265,9 @@ export const Calendar: React.FC = () => {
     (event: Event) => {
       if (event.type === "itProduct" && event.productId) {
         const product = products.find((p) => p.id === event.productId);
-        if (product?.title) {
-          return product.title;
+        const title = resolveProductTitle(product);
+        if (title) {
+          return title;
         }
       }
 
@@ -405,7 +469,9 @@ export const Calendar: React.FC = () => {
       {rangeForModal && (
         <EventModal
           range={rangeForModal}
+          events={events}
           products={products}
+          audienceLookup={audienceLookup}
           productsError={productsError}
           isLoadingProducts={isLoadingProducts}
           onReloadProducts={fetchProducts}
@@ -516,7 +582,7 @@ const DayDetailsModal = ({
             const product = products.find((p) => p.id === event.productId);
             const displayTitle =
               event.type === "itProduct"
-                ? product?.title ?? event.title
+                ? resolveProductTitle(product) || event.title
                 : event.title;
             const plannedDate = event.plannedCsiDate ?? product?.plannedCsiDate;
             const typeLabel = event.type === "itProduct" ? "IT продукт" : "Пользовательский";
@@ -565,9 +631,9 @@ const DayDetailsModal = ({
                 <div className="text-xs text-slate-600 space-y-1">
                   {event.type === "itProduct" && product && (
                     <div className="flex flex-wrap gap-2">
-                      {product.productOwner && (
+                      {resolveProductOwner(product) && (
                         <span className="px-2 py-0.5 rounded-full bg-white border text-slate-700">
-                          PO: {product.productOwner}
+                          PO: {resolveProductOwner(product)}
                         </span>
                       )}
                       {product.cluster && (
