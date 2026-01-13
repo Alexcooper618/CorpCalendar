@@ -2,6 +2,9 @@
 
 import React from "react";
 
+const ALL_EMPLOYEES_ID = "all-employees";
+const ALL_EMPLOYEES_LABEL = "Все сотрудники";
+
 export interface Product {
   id: string;
   name: string;
@@ -9,6 +12,7 @@ export interface Product {
   cluster?: string;
   year?: number;
   audienceId?: string;
+  audienceIds?: string[];
   audience?: {
     id: string;
     name: string;
@@ -35,11 +39,24 @@ export function ProductCardGrid({
   emptyHint,
 }: ProductCardGridProps) {
   const resolvedAudience = (product: Product) => {
-    const byId = product.audienceId
-      ? audienceLookup.get(product.audienceId)
-      : undefined;
-    const fallback = product.audience?.name;
-    return byId ?? fallback ?? "Не выбрана";
+    const ids = product.audienceIds?.length
+      ? product.audienceIds
+      : product.audienceId
+      ? [product.audienceId]
+      : [];
+    if (ids.includes(ALL_EMPLOYEES_ID)) {
+      return ALL_EMPLOYEES_LABEL;
+    }
+    const labels = ids
+      .map((id) => audienceLookup.get(id))
+      .filter((label): label is string => Boolean(label));
+    if (labels.length) {
+      if (labels.length > 3) {
+        return `${labels.slice(0, 3).join(", ")} и ещё ${labels.length - 3}`;
+      }
+      return labels.join(", ");
+    }
+    return product.audience?.name ?? "Не выбрана";
   };
 
   if (!products.length && emptyHint) {
